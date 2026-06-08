@@ -8,6 +8,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "setup:vapi": "bun src/scripts/setup-vapi.ts",
+    "sync:assistant": "bun src/scripts/sync-assistant.ts",
     "test:call": "bun src/scripts/test-call.ts"
   },
   "dependencies": {

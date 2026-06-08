@@ -1,4 +1,6 @@
 import { config } from "../config.ts";
+import { runTool } from "../tools/index.ts";
+import { parseToolCall } from "./parse-tool-call.ts";
 
 type VapiWebhookBody = {
   message?: {
@@ -9,8 +11,12 @@ type VapiWebhookBody = {
     call?: { id?: string };
     toolCallList?: Array<{
       id: string;
-      name: string;
+      name?: string;
       parameters?: Record<string, unknown>;
+      function?: {
+        name?: string;
+        arguments?: string | Record<string, unknown>;
+      };
     }>;
   };
 };
@@ -43,14 +49,29 @@ export async function handleVapiWebhook(req: Request): Promise<Response> {
     }
 
     case "tool-calls": {
-      const results =
-        message.toolCallList?.map((toolCall) => ({
-          name: toolCall.name,
-          toolCallId: toolCall.id,
-          result: JSON.stringify({
-            error: `Tool "${toolCall.name}" is not implemented yet.`,
-          }),
-        })) ?? [];
+      const toolCalls = message.toolCallList ?? [];
+      const results = await Promise.all(
+        toolCalls.map(async (rawToolCall) => {
+          try {
+            const toolCall = parseToolCall(rawToolCall);
+            console.log(`[vapi] tool-calls: ${toolCall.name}`, toolCall.parameters);
+            const result = await runTool(toolCall.name, toolCall.parameters);
+            return {
+              name: toolCall.name,
+              toolCallId: toolCall.id,
+              result,
+            };
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : "Unknown error";
+            const name = rawToolCall.function?.name ?? rawToolCall.name ?? "unknown";
+            return {
+              name,
+              toolCallId: rawToolCall.id,
+              error: `Failed to run ${name}: ${detail}`,
+            };
+          }
+        }),
+      );
 
       return Response.json({ results });
     }
