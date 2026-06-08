@@ -81,7 +81,8 @@ export async function handleVapiWebhook(req: Request): Promise<Response> {
       break;
 
     case "transcript":
-      console.log(`[vapi] ${message.role}: ${message.transcript}`);
+    case "speech-update":
+      console.log(`[vapi] ${message.type} ${message.role ?? "unknown"}: ${message.transcript ?? ""}`);
       break;
 
     case "end-of-call-report":
@@ -89,7 +90,11 @@ export async function handleVapiWebhook(req: Request): Promise<Response> {
       break;
 
     default:
-      console.log(`[vapi] ${message.type}`);
+      if (message.transcript) {
+        console.log(`[vapi] ${message.type} ${message.role ?? "unknown"}: ${message.transcript}`);
+      } else {
+        console.log(`[vapi] ${message.type}`);
+      }
   }
 
   return Response.json({ received: true });

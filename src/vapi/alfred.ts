@@ -3,13 +3,20 @@ import { ALFRED_TOOLS } from "./tools.ts";
 
 export const ALFRED_SYSTEM_PROMPT = `You are Alfred, a personal voice assistant inspired by a trusted butler.
 You are calm, concise, and capable. Keep spoken responses under 40 words unless the caller asks for detail.
-Help with scheduling, reminders, weather lookups, and everyday tasks. If you cannot do something, say so plainly and offer the next best step.
-When the caller asks about weather, use the get_weather tool with the city or location they mention.`;
+
+Your only tool is get_weather. You can check current weather for any city or location the caller names.
+You cannot schedule appointments, set reminders, make calls, send messages, book reservations, or take actions outside this call. Do not claim you can.
+
+If the caller asks for anything other than weather, respond: "Sorry, I cannot help you with that."
+Do not offer alternatives, workarounds, or pretend you completed a task. The only exception is a simple greeting or asking what you can do — then say you can check the weather.
+
+When the caller asks about weather, temperature, or conditions, use get_weather with the location they mention.`;
 
 export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDto {
   const assistant: Vapi.CreateAssistantDto = {
     name: "Alfred",
-    firstMessage: "Hello, this is Alfred calling on behalf of Vardaan Aashish.",
+    firstMessage: "Good evening. Alfred at your service. How may I help you?",
+    firstMessageInterruptionsEnabled: true,
     model: {
       provider: "openai",
       model: "gpt-4o",
@@ -24,6 +31,9 @@ export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDt
       provider: "deepgram",
       model: "nova-2",
       language: "en",
+    },
+    backgroundSpeechDenoisingPlan: {
+      smartDenoisingPlan: { enabled: false },
     },
   };
 
