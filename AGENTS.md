@@ -71,11 +71,11 @@ Optional:
 
 ## Endpoints
 
-| Method | Path            | Purpose                    |
-|--------|-----------------|----------------------------|
-| GET    | `/`             | Plain-text greeting        |
-| GET    | `/health`       | Health check               |
-| POST   | `/webhook/vapi` | Vapi server messages       |
+| Method | Path            | Purpose              |
+|--------|-----------------|----------------------|
+| GET    | `/`             | Plain-text greeting  |
+| GET    | `/health`       | Health check         |
+| POST   | `/webhook/vapi` | Vapi server messages |
 
 ## Current status
 
@@ -84,7 +84,7 @@ Optional:
 - [x] Webhook handler (tool-calls, transcripts, status)
 - [x] `get_weather` tool
 - [x] Inbound + outbound test calls
-- [ ] Messaging channel (WhatsApp / SMS via Twilio)
+- [ ] Messaging channel (SMS / WhatsApp)
 - [ ] Transactional tools (reservations, appointment calls on user's behalf)
 - [ ] Call logging / transcript persistence
 
