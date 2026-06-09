@@ -19,6 +19,9 @@ export const config = {
   vapiPhoneNumberId: optional("VAPI_PHONE_NUMBER_ID"),
   vapiAreaCode: optional("VAPI_AREA_CODE") ?? "415",
   vapiTestPhoneNumber: optional("VAPI_TEST_PHONE_NUMBER"),
+  twilioAccountSid: optional("TWILIO_ACCOUNT_SID"),
+  twilioAuthToken: optional("TWILIO_AUTH_TOKEN"),
+  twilioPhoneNumber: optional("TWILIO_PHONE_NUMBER"),
 };
 
 export function requireVapiApiKey(): string {

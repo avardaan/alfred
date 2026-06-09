@@ -33,6 +33,14 @@ Fresh clone from scratch. If you're resuming work, jump in at whichever step you
 
    Creates an assistant and phone number. Copy the printed `VAPI_ASSISTANT_ID` and `VAPI_PHONE_NUMBER_ID` into `.env`.
 
+   **Optional — use your own Twilio number** instead of the Vapi-provisioned one (avoids Vapi's daily outbound-call limit). Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (use **Live**, not Test, credentials), and `TWILIO_PHONE_NUMBER` (E.164) in `.env`, then:
+
+   ```bash
+   bun run import:twilio
+   ```
+
+   Imports the number into Vapi, links it to your existing assistant, and prints a new `VAPI_PHONE_NUMBER_ID` — copy it into `.env`. Trial Twilio accounts can only call numbers verified under *Phone Numbers → Verified Caller IDs*.
+
 4. **Start the server**
 
    ```bash
