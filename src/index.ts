@@ -3,6 +3,7 @@ import { handleVapiWebhook } from "./routes/webhook.ts";
 
 const server = Bun.serve({
   port: config.port,
+  hostname: "0.0.0.0",
   routes: {
     "/": () =>
       new Response("Hello, this is Alfred. What can I do for you?", {

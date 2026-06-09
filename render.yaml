@@ -1,0 +1,27 @@
+# Render Blueprint — Alfred webhook server
+# Project: https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g
+# Apply: open that project → New → Blueprint, or use the deeplink in AGENTS.md
+
+projects:
+  - name: alfred
+    environments:
+      - name: production
+        services:
+          - type: web
+            name: alfred
+            runtime: docker
+            plan: free
+            region: oregon
+            branch: main
+            repo: https://github.com/avardaan/alfred
+            autoDeployTrigger: commit
+            dockerfilePath: ./Dockerfile
+            dockerContext: .
+            healthCheckPath: /health
+            envVars:
+              - key: VAPI_API_KEY
+                sync: false
+              - key: VAPI_ASSISTANT_ID
+                sync: false
+              - key: VAPI_PHONE_NUMBER_ID
+                sync: false
