@@ -2,11 +2,9 @@
 
 ## Todo
 
-- [ ] Use Twilio number instead of Vapi-provisioned number (Vapi limits daily outbound calls)
-- [ ] Debug outbound calls with no customer audio (STT hears nothing on some numbers)
-
 ## Done
-
+- [x] Debug outbound calls with no customer audio (STT hears nothing on some numbers)
+- [x] Use Twilio number instead of Vapi-provisioned number (Vapi limits daily outbound calls)
 - [x] Improve onboarding docs and tighten Alfred assistant scope
 - [x] Fix AGENTS.md to match voice-only Alfred codebase
 - [x] Consolidate project docs into AGENTS.md
