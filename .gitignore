@@ -4,7 +4,6 @@ node_modules
 # local tooling
 .cursor/
 .agents/
-skills-lock.json
 
 # environment variables
 .env
