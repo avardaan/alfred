@@ -72,6 +72,75 @@ bun run sync:assistant
 
 **Never commit `.env` or any API keys, tokens, or real phone numbers.**
 
+## Deploy to Render
+
+Alfred runs on Render as a Docker web service. Vapi webhooks hit `https://<your-service>.onrender.com/webhook/vapi`.
+
+**Render project:** [alfred (prj-d8jr6a42m8qs739eed9g)](https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g)
+
+The Blueprint in `render.yaml` targets the `alfred` project, `production` environment. If your Dashboard project uses a different name, rename the `projects[].name` field to match before applying.
+
+### First-time setup
+
+1. **Authenticate Render CLI** (optional, for validation and logs)
+
+   ```bash
+   render login
+   render blueprints validate
+   ```
+
+2. **Apply the Blueprint** in your Render project
+
+   Open the project, then create a Blueprint from this repo:
+
+   ```
+   https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g/blueprint/new?repo=https://github.com/avardaan/alfred
+   ```
+
+   Or: Project → **New** → **Blueprint** → select `avardaan/alfred` → branch `main`.
+
+3. **Fill secrets** when prompted (also editable later under the service → Environment)
+
+   | Variable | Required on Render | Notes |
+   |----------|-------------------|-------|
+   | `VAPI_API_KEY` | No (runtime) | Needed for local scripts |
+   | `VAPI_ASSISTANT_ID` | **Yes** | Used by `assistant-request` webhook |
+   | `VAPI_PHONE_NUMBER_ID` | No | Only for `test:call` locally |
+
+   Render sets `PORT` automatically. Do **not** set `VAPI_SERVER_URL` on Render — it is only used by local setup/sync scripts.
+
+4. **Wait for deploy**, then smoke check
+
+   ```bash
+   curl https://alfred.onrender.com/health
+   ```
+
+   Use your actual `*.onrender.com` hostname from the Dashboard.
+
+5. **Point Vapi at Render** (run locally)
+
+   ```bash
+   # .env — use your Render URL, no /webhook/vapi suffix
+   VAPI_SERVER_URL=https://alfred.onrender.com
+   bun run sync:assistant
+   ```
+
+6. **Test**
+
+   ```bash
+   bun run test:call
+   ```
+
+   Or call your Twilio/Vapi number inbound.
+
+### After code changes
+
+Push to `main` — Render auto-deploys (`autoDeployTrigger: commit`). After changing `src/vapi/*`, also run `bun run sync:assistant` locally.
+
+### Free tier note
+
+Free web services spin down after ~15 minutes idle. Vapi webhooks may hit a cold start. For reliable voice calls, upgrade the service to **Starter** in the Dashboard or set `plan: starter` in `render.yaml` and re-sync the Blueprint.
+
 ## Stack
 
 - **Runtime:** Bun
