@@ -68,11 +68,13 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Requires `ELEVENLABS_TEST_PHONE_NUMBER` in `.env` (E.164 format).
 
-After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`):
+After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or user DB / init webhook:
 
 ```bash
 bun run sync:agent
 ```
+
+Inbound calls personalize via `/webhook/elevenlabs/init` (configured on the agent by `sync:agent`). Outbound `test:call` passes the same lookup via `conversationInitiationClientData`.
 
 **Never commit `.env` or any API keys, tokens, or real phone numbers.**
 
@@ -83,6 +85,7 @@ Alfred runs on Render as a Docker web service. ElevenLabs hits:
 | Route | Purpose |
 |-------|---------|
 | `/webhook/elevenlabs` | Post-call transcription webhooks |
+| `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db/db.json`, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 
 **Render project:** [alfred (prj-d8jr6a42m8qs739eed9g)](https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g)
@@ -111,7 +114,9 @@ Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold
 | `src/elevenlabs/alfred.ts` | Assembles full agent config for the API |
 | `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, etc.) |
-| `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/tools/*`) |
+| `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/webhook/elevenlabs/init`, `/tools/*`) |
+| `src/db/` | JSON-backed user lookup (`db/db.json`) |
+| `db/db.json` | Committed user records (phone → name); init webhook reads this |
 | `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call` |
 
 ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:agent`, not the ElevenLabs CLI.

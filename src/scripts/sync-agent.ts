@@ -15,7 +15,7 @@ const client = createElevenLabsClient();
 const toolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
 
 console.log(`Updating agent ${agentId}...`);
-await client.conversationalAi.agents.update(agentId, buildAlfredAgentRequest(toolId));
+await client.conversationalAi.agents.update(agentId, buildAlfredAgentRequest(toolId, serverUrl));
 
 console.log("Agent updated.");
 console.log(`Weather tool id: ${toolId}`);

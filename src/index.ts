@@ -1,4 +1,5 @@
 import { config } from "./config.ts";
+import { handleElevenLabsInitWebhook } from "./routes/elevenlabs-init-webhook.ts";
 import { handleElevenLabsWebhook } from "./routes/elevenlabs-webhook.ts";
 import { handleGetWeatherTool } from "./routes/get-weather-tool.ts";
 
@@ -13,6 +14,9 @@ const server = Bun.serve({
     "/health": () => Response.json({ status: "ok" }),
     "/webhook/elevenlabs": {
       POST: handleElevenLabsWebhook,
+    },
+    "/webhook/elevenlabs/init": {
+      POST: handleElevenLabsInitWebhook,
     },
     "/tools/get_weather": {
       POST: handleGetWeatherTool,

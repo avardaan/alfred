@@ -1,5 +1,6 @@
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import {
+  ALFRED_CALLER_NAME_VARIABLE,
   ALFRED_FIRST_MESSAGE,
   ALFRED_SYSTEM_PROMPT,
   ALFRED_VOICE_ID,
@@ -25,6 +26,11 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
       firstMessage: ALFRED_FIRST_MESSAGE,
       language: "en",
       disableFirstMessageInterruptions: true,
+      dynamicVariables: {
+        dynamicVariablePlaceholders: {
+          [ALFRED_CALLER_NAME_VARIABLE]: "there",
+        },
+      },
       prompt: {
         prompt: ALFRED_SYSTEM_PROMPT,
         llm: ALFRED_LLM,
@@ -34,9 +40,27 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
   };
 }
 
-export function buildAlfredAgentRequest(toolId: string) {
+export function buildAlfredAgentRequest(toolId: string, serverUrl: string) {
+  const baseUrl = serverUrl.replace(/\/$/, "");
+
   return {
     name: "Alfred",
     conversationConfig: buildAlfredConversationConfig(toolId),
+    platformSettings: {
+      overrides: {
+        enableConversationInitiationClientDataFromWebhook: true,
+        conversationConfigOverride: {
+          agent: {
+            firstMessage: true,
+          },
+        },
+      },
+      workspaceOverrides: {
+        conversationInitiationClientDataWebhook: {
+          url: `${baseUrl}/webhook/elevenlabs/init`,
+          requestHeaders: {},
+        },
+      },
+    },
   };
 }

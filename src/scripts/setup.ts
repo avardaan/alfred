@@ -17,7 +17,10 @@ const toolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToo
 
 if (config.elevenLabsAgentId) {
   console.log(`Updating agent ${config.elevenLabsAgentId}...`);
-  await client.conversationalAi.agents.update(config.elevenLabsAgentId, buildAlfredAgentRequest(toolId));
+  await client.conversationalAi.agents.update(
+    config.elevenLabsAgentId,
+    buildAlfredAgentRequest(toolId, serverUrl),
+  );
   console.log(`Agent updated: ${config.elevenLabsAgentId}`);
   console.log(`Weather tool id: ${toolId}`);
   console.log("\nAdd to .env if missing:");
@@ -26,7 +29,7 @@ if (config.elevenLabsAgentId) {
 }
 
 console.log("Creating Alfred agent on ElevenLabs...");
-const created = await client.conversationalAi.agents.create(buildAlfredAgentRequest(toolId));
+const created = await client.conversationalAi.agents.create(buildAlfredAgentRequest(toolId, serverUrl));
 
 console.log(`Agent created: ${created.agentId}`);
 console.log(`Weather tool id: ${toolId}`);
