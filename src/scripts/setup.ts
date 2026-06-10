@@ -36,4 +36,4 @@ console.log(`ELEVENLABS_WEATHER_TOOL_ID=${toolId}`);
 console.log("\nNext:");
 console.log("1. In ElevenLabs → Agents → Settings → Webhooks, set post-call URL to:");
 console.log(`   ${serverUrl.replace(/\/$/, "")}/webhook/elevenlabs`);
-console.log("2. Import Twilio: bun run import:twilio:elevenlabs");
+console.log("2. Import Twilio: bun run import:twilio");

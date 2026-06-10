@@ -1,29 +1,35 @@
-import { config, requireVapiApiKey } from "../config.ts";
-import { createVapiClient } from "../vapi/client.ts";
+import { config, requireElevenLabsApiKey } from "../config.ts";
+import { createElevenLabsClient } from "../elevenlabs/client.ts";
 
-requireVapiApiKey();
+requireElevenLabsApiKey();
 
-const assistantId = config.vapiAssistantId;
-const phoneNumberId = config.vapiPhoneNumberId;
-const customerNumber = config.vapiTestPhoneNumber;
+const agentId = config.elevenLabsAgentId;
+const phoneNumberId = config.elevenLabsPhoneNumberId;
+const customerNumber = config.elevenLabsTestPhoneNumber;
 
-if (!assistantId) {
-  throw new Error("Missing VAPI_ASSISTANT_ID. Run `bun run setup:vapi` first.");
+if (!agentId) {
+  throw new Error("Missing ELEVENLABS_AGENT_ID. Run `bun run setup` first.");
+}
+
+if (!phoneNumberId) {
+  throw new Error("Missing ELEVENLABS_PHONE_NUMBER_ID. Run `bun run import:twilio` first.");
 }
 
 if (!customerNumber) {
-  throw new Error("Missing VAPI_TEST_PHONE_NUMBER in .env (E.164 format, e.g. +14155551234).");
+  throw new Error(
+    "Missing ELEVENLABS_TEST_PHONE_NUMBER in .env (E.164 format, e.g. +14155551234).",
+  );
 }
 
-const vapi = createVapiClient();
+const client = createElevenLabsClient();
 
 console.log(`Placing test call to ${customerNumber}...`);
 
-const call = await vapi.calls.create({
-  assistantId,
-  phoneNumberId,
-  customer: { number: customerNumber },
+const call = await client.conversationalAi.twilio.outboundCall({
+  agentId,
+  agentPhoneNumberId: phoneNumberId,
+  toNumber: customerNumber,
 });
 
-console.log(`Call created: ${call.id}`);
-console.log(`Status: ${call.status ?? "unknown"}`);
+console.log(`Call created: ${call.conversationId ?? call.callSid ?? "unknown"}`);
+console.log(`Success: ${call.success ?? true}`);

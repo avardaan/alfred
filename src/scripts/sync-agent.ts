@@ -8,7 +8,7 @@ const serverUrl = requireElevenLabsServerUrl();
 
 const agentId = config.elevenLabsAgentId;
 if (!agentId) {
-  throw new Error("Missing ELEVENLABS_AGENT_ID. Run `bun run setup:elevenlabs` first.");
+  throw new Error("Missing ELEVENLABS_AGENT_ID. Run `bun run setup` first.");
 }
 
 const client = createElevenLabsClient();
