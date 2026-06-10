@@ -141,18 +141,76 @@ Push to `main` — Render auto-deploys (`autoDeployTrigger: commit`). After chan
 
 Free web services spin down after ~15 minutes idle. Vapi webhooks may hit a cold start. For reliable voice calls, upgrade the service to **Starter** in the Dashboard or set `plan: starter` in `render.yaml` and re-sync the Blueprint.
 
+## ElevenLabs migration (in progress)
+
+Alfred is moving from Vapi to [ElevenAgents](https://elevenlabs.io/docs/eleven-agents/overview). **Vapi remains active until cutover.** Shared persona lives in `src/assistant/alfred.ts`.
+
+### Bun server routes (both stacks)
+
+| Route | Purpose |
+|-------|---------|
+| `/webhook/vapi` | Vapi tool-calls + end-of-call (legacy) |
+| `/webhook/elevenlabs` | ElevenLabs `post_call_transcription` webhooks |
+| `/tools/get_weather` | ElevenLabs webhook tool → `src/tools/weather.ts` |
+
+### Setup ElevenLabs
+
+```bash
+# .env — same public URL as VAPI_SERVER_URL
+ELEVENLABS_API_KEY=...
+ELEVENLABS_SERVER_URL=https://alfred-5lu3.onrender.com
+
+bun run setup:elevenlabs   # creates agent + get_weather tool
+bun run sync:agent         # after changing src/assistant/* or src/elevenlabs/*
+```
+
+In ElevenLabs Dashboard → Agents → Webhooks, set post-call URL to:
+
+```
+https://<your-server>/webhook/elevenlabs
+```
+
+Import Twilio (release from Vapi first if needed):
+
+```bash
+bun run import:twilio:elevenlabs
+bun run test:call:elevenlabs
+```
+
+### CLI (agents as code)
+
+```bash
+bun run elevenlabs auth login
+bun run elevenlabs tools add get_weather --type webhook --config-path ./tool_configs/get_weather.json
+bun run elevenlabs agents push
+```
+
+CLI config: `agents.json`, `tool_configs/`. API keys stored in gitignored `.agents/`.
+
+### SDK
+
+Runtime dependency: `@elevenlabs/elevenlabs-js`. Scripts in `src/elevenlabs/*` and `src/scripts/setup-elevenlabs.ts`.
+
+### Docs (no official docs MCP yet)
+
+- Index: https://elevenlabs.io/docs/llms.txt
+- Agents overview: https://elevenlabs.io/docs/eleven-agents/overview
+- Server tools: https://elevenlabs.io/docs/eleven-agents/customization/tools/server-tools
+- CLI: https://elevenlabs.io/docs/eleven-agents/operate/cli
+
 ## Stack
 
 - **Runtime:** Bun
 - **Language:** TypeScript (strict, ESM, `.ts` imports with extensions)
-- **Voice:** Vapi (`@vapi-ai/server-sdk`) — assistant config in `src/vapi/alfred.ts`
+- **Voice (legacy):** Vapi (`@vapi-ai/server-sdk`) — `src/vapi/alfred.ts`
+- **Voice (migration):** ElevenAgents — `src/elevenlabs/alfred.ts`, `@elevenlabs/elevenlabs-js`
 
 ## Adding a tool
 
 1. **Handler** — implement in `src/tools/` and register in `src/tools/index.ts`
 2. **Vapi schema** — add the function definition to `src/vapi/tools.ts`
-3. **Prompt** — update `ALFRED_SYSTEM_PROMPT` in `src/vapi/alfred.ts` so the assistant knows when to use it
-4. **Deploy** — `bun run sync:assistant`
+3. **Prompt** — update `ALFRED_SYSTEM_PROMPT` in `src/assistant/alfred.ts`
+4. **Deploy** — `bun run sync:assistant` (Vapi) and `bun run sync:agent` (ElevenLabs)
 
 ## MCP (local dev tooling)
 

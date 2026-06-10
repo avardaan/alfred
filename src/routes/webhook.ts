@@ -1,5 +1,6 @@
 import { config } from "../config.ts";
 import { runTool } from "../tools/index.ts";
+import { formatTranscriptLines } from "./format-transcript.ts";
 import { parseToolCall } from "./parse-tool-call.ts";
 
 type VapiArtifactMessage = {
@@ -18,19 +19,7 @@ function formatCallTranscript(artifact?: VapiArtifact): string | undefined {
     return transcript;
   }
 
-  const lines = (artifact?.messages ?? [])
-    .map((entry) => {
-      const text = entry.message?.trim();
-      if (!text) {
-        return undefined;
-      }
-
-      const role = entry.role ?? "unknown";
-      return `${role}: ${text}`;
-    })
-    .filter((line): line is string => line !== undefined);
-
-  return lines.length > 0 ? lines.join("\n") : undefined;
+  return formatTranscriptLines(artifact?.messages ?? []);
 }
 
 type VapiWebhookBody = {

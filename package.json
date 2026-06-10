@@ -8,14 +8,21 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "setup:vapi": "bun src/scripts/setup-vapi.ts",
+    "setup:elevenlabs": "bun src/scripts/setup-elevenlabs.ts",
     "import:twilio": "bun src/scripts/import-twilio-number.ts",
+    "import:twilio:elevenlabs": "bun src/scripts/import-twilio-elevenlabs.ts",
     "sync:assistant": "bun src/scripts/sync-assistant.ts",
-    "test:call": "bun src/scripts/test-call.ts"
+    "sync:agent": "bun src/scripts/sync-agent.ts",
+    "test:call": "bun src/scripts/test-call.ts",
+    "test:call:elevenlabs": "bun src/scripts/test-call-elevenlabs.ts",
+    "elevenlabs": "elevenlabs"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.52.0",
     "@vapi-ai/server-sdk": "^1.2.0"
   },
   "devDependencies": {
+    "@elevenlabs/cli": "^0.5.3",
     "@types/bun": "latest"
   },
   "peerDependencies": {
