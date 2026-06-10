@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { ALFRED_GREETING } from "../assistant/alfred.ts";
 
-const DB_PATH = new URL("../../db/db.json", import.meta.url);
+const DB_PATH = new URL("../../db.json", import.meta.url);
 
 export type User = {
   id: string;
