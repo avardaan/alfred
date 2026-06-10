@@ -2,12 +2,45 @@ import { config } from "../config.ts";
 import { runTool } from "../tools/index.ts";
 import { parseToolCall } from "./parse-tool-call.ts";
 
+type VapiArtifactMessage = {
+  role?: string;
+  message?: string;
+};
+
+type VapiArtifact = {
+  transcript?: string;
+  messages?: VapiArtifactMessage[];
+};
+
+function formatCallTranscript(artifact?: VapiArtifact): string | undefined {
+  const transcript = artifact?.transcript?.trim();
+  if (transcript) {
+    return transcript;
+  }
+
+  const lines = (artifact?.messages ?? [])
+    .map((entry) => {
+      const text = entry.message?.trim();
+      if (!text) {
+        return undefined;
+      }
+
+      const role = entry.role ?? "unknown";
+      return `${role}: ${text}`;
+    })
+    .filter((line): line is string => line !== undefined);
+
+  return lines.length > 0 ? lines.join("\n") : undefined;
+}
+
 type VapiWebhookBody = {
   message?: {
     type?: string;
     status?: string;
     role?: string;
     transcript?: string;
+    endedReason?: string;
+    artifact?: VapiArtifact;
     call?: { id?: string };
     toolCallList?: Array<{
       id: string;
@@ -85,9 +118,19 @@ export async function handleVapiWebhook(req: Request): Promise<Response> {
       console.log(`[vapi] ${message.type} ${message.role ?? "unknown"}: ${message.transcript ?? ""}`);
       break;
 
-    case "end-of-call-report":
-      console.log(`[vapi] end-of-call-report for ${message.call?.id ?? "unknown"}`);
+    case "end-of-call-report": {
+      const callId = message.call?.id ?? "unknown";
+      const endedReason = message.endedReason ? ` (${message.endedReason})` : "";
+      const transcript = formatCallTranscript(message.artifact);
+
+      console.log(`[vapi] end-of-call-report for ${callId}${endedReason}`);
+      if (transcript) {
+        console.log(`[vapi] call transcript (${callId}):\n${transcript}`);
+      } else {
+        console.log(`[vapi] call transcript (${callId}): (empty)`);
+      }
       break;
+    }
 
     default:
       if (message.transcript) {
