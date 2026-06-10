@@ -1,4 +1,4 @@
-import { getWeather } from "./weather.ts";
+import { getWeather, parseTemperatureUnit } from "./weather.ts";
 
 export type ToolCall = {
   id: string;
@@ -14,7 +14,8 @@ export async function runTool(
     case "get_weather": {
       const location =
         typeof parameters.location === "string" ? parameters.location : "";
-      return getWeather(location);
+      const unit = parseTemperatureUnit(parameters.unit);
+      return getWeather(location, unit);
     }
 
     default:

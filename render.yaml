@@ -1,6 +1,5 @@
 # Render Blueprint — Alfred webhook server
-# Project: https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g
-# Apply: open that project → New → Blueprint, or use the deeplink in AGENTS.md
+# Apply: https://dashboard.render.com/blueprint/new?repo=https://github.com/avardaan/alfred
 
 projects:
   - name: alfred
