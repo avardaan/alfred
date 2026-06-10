@@ -2,8 +2,7 @@ export const ALFRED_VOICE_ID = "7ZDIRYX8GiK4ebxC9heZ";
 
 export const ALFRED_GREETING = "Hello, this is Alfred. What can I do for you?";
 
-/** Leading pause gives PSTN audio time to connect before speech starts. */
-export const ALFRED_FIRST_MESSAGE = `<break time="1s" />${ALFRED_GREETING}`;
+export const ALFRED_FIRST_MESSAGE = ALFRED_GREETING;
 
 export const ALFRED_SYSTEM_PROMPT = `You are Alfred, a personal voice assistant inspired by a trusted butler.
 You are calm, concise, and natural. Keep spoken responses under 40 words unless the caller asks for detail.
