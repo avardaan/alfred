@@ -36,7 +36,7 @@ export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDt
     },
     voice: {
       provider: "11labs",
-      voiceId: "burt",
+      voiceId: "7ZDIRYX8GiK4ebxC9heZ",
       enableSsmlParsing: true,
     },
     transcriber: {
