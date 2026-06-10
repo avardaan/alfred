@@ -6,7 +6,7 @@ export const ALFRED_TOOLS: Vapi.OpenAiModelToolsItem[] = [
     function: {
       name: "get_weather",
       description:
-        "Get the current weather for a city or location. Use when the caller asks about weather, temperature, or conditions.",
+        "Get current weather for a city or location. Returns conditions plus both Fahrenheit and Celsius. Call once per location per call.",
       parameters: {
         type: "object",
         properties: {
@@ -24,11 +24,5 @@ export const ALFRED_TOOLS: Vapi.OpenAiModelToolsItem[] = [
         required: ["location"],
       },
     },
-    messages: [
-      {
-        type: "request-start",
-        content: "One moment while I check the weather.",
-      },
-    ],
   },
 ];

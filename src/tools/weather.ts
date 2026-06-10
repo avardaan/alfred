@@ -140,12 +140,21 @@ export async function getWeather(
 
   const place = data.nearest_area?.[0]?.areaName?.[0]?.value ?? query;
   const description = current.weatherDesc?.[0]?.value ?? "unknown conditions";
-  const temp = unit === "celsius" ? current.temp_C : current.temp_F;
+  const tempF = current.temp_F;
+  const tempC = current.temp_C;
+  const conditions = `${place}: ${description.toLowerCase()}.`;
 
-  if (temp) {
-    const temperature = speakTemperature(temp, unit);
-    return `In ${place}, it is ${description.toLowerCase()}, ${temperature}.`;
+  if (tempF && tempC) {
+    return `${conditions} Fahrenheit: ${speakTemperature(tempF, "fahrenheit")}. Celsius: ${speakTemperature(tempC, "celsius")}.`;
   }
 
-  return `In ${place}, it is ${description.toLowerCase()}.`;
+  if (tempF) {
+    return `${conditions} Fahrenheit: ${speakTemperature(tempF, "fahrenheit")}.`;
+  }
+
+  if (tempC) {
+    return `${conditions} Celsius: ${speakTemperature(tempC, "celsius")}.`;
+  }
+
+  return conditions;
 }
