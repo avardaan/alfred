@@ -10,14 +10,12 @@
     "setup": "bun src/scripts/setup.ts",
     "import:twilio": "bun src/scripts/import-twilio.ts",
     "sync:agent": "bun src/scripts/sync-agent.ts",
-    "test:call": "bun src/scripts/test-call.ts",
-    "elevenlabs": "elevenlabs"
+    "test:call": "bun src/scripts/test-call.ts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.52.0"
   },
   "devDependencies": {
-    "@elevenlabs/cli": "^0.5.3",
     "@types/bun": "latest"
   },
   "peerDependencies": {

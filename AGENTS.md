@@ -99,26 +99,28 @@ Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold
 
 - **Runtime:** Bun
 - **Language:** TypeScript (strict, ESM, `.ts` imports with extensions)
-- **Voice:** ElevenAgents — `src/elevenlabs/alfred.ts`, `@elevenlabs/elevenlabs-js`
-- **Persona:** `src/assistant/alfred.ts` (shared prompt, greeting, voice ID)
+- **Voice:** ElevenAgents — `@elevenlabs/elevenlabs-js`, configured in `src/elevenlabs/*`
+- **Persona:** `src/assistant/alfred.ts` (prompt, greeting, voice ID)
+
+### Layout
+
+| Path | Role |
+|------|------|
+| `src/assistant/` | Persona text and voice ID (source of truth for prompts) |
+| `src/elevenlabs/` | Agent + tool definitions pushed to ElevenLabs via SDK scripts |
+| `src/tools/` | Tool implementations (weather, etc.) |
+| `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/tools/*`) |
+| `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call` |
+
+ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:agent`, not the ElevenLabs CLI.
 
 ## Adding a tool
 
 1. **Handler** — implement in `src/tools/` and register in `src/tools/index.ts`
-2. **ElevenLabs schema** — add tool config in `src/elevenlabs/tools.ts` (or `tool_configs/` for CLI)
+2. **ElevenLabs schema** — add config in `src/elevenlabs/tools.ts` and wire the tool ID in `src/elevenlabs/alfred.ts`
 3. **Prompt** — update `ALFRED_SYSTEM_PROMPT` in `src/assistant/alfred.ts`
 4. **Route** — add a POST handler in `src/index.ts` if the tool needs a dedicated webhook path
-5. **Deploy** — `bun run sync:agent` to push tool + agent config to ElevenLabs; push code to Render for new routes
-
-## CLI (agents as code)
-
-```bash
-bun run elevenlabs auth login
-bun run elevenlabs tools add get_weather --type webhook --config-path ./tool_configs/get_weather.json
-bun run elevenlabs agents push
-```
-
-CLI config: `agents.json`, `tool_configs/`. API keys stored in gitignored `.agents/`.
+5. **Deploy** — `bun run sync:agent` for ElevenLabs; push code to Render for new routes
 
 ## Conventions
 
@@ -132,4 +134,3 @@ CLI config: `agents.json`, `tool_configs/`. API keys stored in gitignored `.agen
 - ElevenLabs index: https://elevenlabs.io/docs/llms.txt
 - Agents overview: https://elevenlabs.io/docs/eleven-agents/overview
 - Server tools: https://elevenlabs.io/docs/eleven-agents/customization/tools/server-tools
-- CLI: https://elevenlabs.io/docs/eleven-agents/operate/cli
