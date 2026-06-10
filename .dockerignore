@@ -3,6 +3,5 @@ node_modules
 .env
 .env.*
 .cursor
-.agents
 README.md
 *.md
