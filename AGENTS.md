@@ -85,7 +85,7 @@ Alfred runs on Render as a Docker web service. ElevenLabs hits:
 | Route | Purpose |
 |-------|---------|
 | `/webhook/elevenlabs` | Post-call transcription webhooks |
-| `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db.json`, personalize greeting |
+| `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db/db.json`, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 
 **Render project:** [alfred (prj-d8jr6a42m8qs739eed9g)](https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g)
@@ -115,8 +115,8 @@ Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold
 | `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, etc.) |
 | `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/webhook/elevenlabs/init`, `/tools/*`) |
-| `src/db/` | User lookup helpers (reads root `db.json`) |
-| `db.json` | Committed user records (phone → name); init webhook reads this |
+| `src/db/` | User lookup helpers (reads `db/db.json`) |
+| `db/db.json` | Committed user records (phone → name); init webhook reads this |
 | `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call` |
 
 ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:agent`, not the ElevenLabs CLI.
