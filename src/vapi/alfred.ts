@@ -25,7 +25,7 @@ export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDt
   const assistant: Vapi.CreateAssistantDto = {
     name: "Alfred",
     // Leading pause gives PSTN audio time to connect before speech starts.
-    firstMessage: `<break time="1.5s" />${greeting}`,
+    firstMessage: `<break time="1s" />${greeting}`,
     firstMessageMode: "assistant-speaks-first",
     firstMessageInterruptionsEnabled: false,
     model: {
