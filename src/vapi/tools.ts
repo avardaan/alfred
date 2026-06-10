@@ -14,6 +14,12 @@ export const ALFRED_TOOLS: Vapi.OpenAiModelToolsItem[] = [
             type: "string",
             description: 'City or location, e.g. "San Francisco" or "Oakland"',
           },
+          unit: {
+            type: "string",
+            enum: ["fahrenheit", "celsius"],
+            description:
+              'Temperature unit. Default fahrenheit. Use celsius when the caller asks for Celsius, centigrade, or metric.',
+          },
         },
         required: ["location"],
       },
