@@ -20,9 +20,12 @@ If the caller only asks for the other unit for the same location you already che
 Never use degree symbols or numeric digits for temperature.`;
 
 export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDto {
+  const greeting = "Hello, this is Alfred. What can I do for you?";
+
   const assistant: Vapi.CreateAssistantDto = {
     name: "Alfred",
-    firstMessage: "Hello, this is Alfred. What can I do for you?",
+    // Leading pause gives PSTN audio time to connect before speech starts.
+    firstMessage: `<break time="1.5s" />${greeting}`,
     firstMessageMode: "assistant-speaks-first",
     firstMessageInterruptionsEnabled: false,
     model: {
@@ -34,6 +37,7 @@ export function buildAlfredAssistant(serverUrl?: string): Vapi.CreateAssistantDt
     voice: {
       provider: "11labs",
       voiceId: "burt",
+      enableSsmlParsing: true,
     },
     transcriber: {
       provider: "deepgram",
