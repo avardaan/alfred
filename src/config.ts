@@ -19,6 +19,11 @@ export const config = {
   vapiPhoneNumberId: optional("VAPI_PHONE_NUMBER_ID"),
   vapiAreaCode: optional("VAPI_AREA_CODE") ?? "415",
   vapiTestPhoneNumber: optional("VAPI_TEST_PHONE_NUMBER"),
+  elevenLabsApiKey: optional("ELEVENLABS_API_KEY"),
+  elevenLabsServerUrl: optional("ELEVENLABS_SERVER_URL"),
+  elevenLabsAgentId: optional("ELEVENLABS_AGENT_ID"),
+  elevenLabsPhoneNumberId: optional("ELEVENLABS_PHONE_NUMBER_ID"),
+  elevenLabsWeatherToolId: optional("ELEVENLABS_WEATHER_TOOL_ID"),
   twilioAccountSid: optional("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optional("TWILIO_AUTH_TOKEN"),
   twilioPhoneNumber: optional("TWILIO_PHONE_NUMBER"),
@@ -26,4 +31,12 @@ export const config = {
 
 export function requireVapiApiKey(): string {
   return required("VAPI_API_KEY");
+}
+
+export function requireElevenLabsApiKey(): string {
+  return required("ELEVENLABS_API_KEY");
+}
+
+export function requireElevenLabsServerUrl(): string {
+  return required("ELEVENLABS_SERVER_URL");
 }
