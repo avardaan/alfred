@@ -18,9 +18,5 @@ projects:
             dockerContext: .
             healthCheckPath: /health
             envVars:
-              - key: VAPI_API_KEY
-                sync: false
               - key: VAPI_ASSISTANT_ID
-                sync: false
-              - key: VAPI_PHONE_NUMBER_ID
                 sync: false
