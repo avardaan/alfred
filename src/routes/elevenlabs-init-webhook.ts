@@ -1,3 +1,4 @@
+import { buildConversationInitiationAgentOverrideWebhook } from "../elevenlabs/alfred.ts";
 import {
   callerNameVariable,
   findUserByPhone,
@@ -42,9 +43,7 @@ function buildInitResponse(user: ReturnType<typeof findUserByPhone>) {
       caller_name: callerNameVariable(user),
     },
     conversation_config_override: {
-      agent: {
-        first_message: greetingForUser(user),
-      },
+      agent: buildConversationInitiationAgentOverrideWebhook(greetingForUser(user)),
     },
   };
 }

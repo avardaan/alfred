@@ -4,6 +4,7 @@ import {
   findUserByPhone,
   greetingForUser,
 } from "../db/users.ts";
+import { buildConversationInitiationAgentOverride } from "../elevenlabs/alfred.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
 
 requireElevenLabsApiKey();
@@ -42,9 +43,7 @@ const call = await client.conversationalAi.twilio.outboundCall({
       caller_name: callerNameVariable(user),
     },
     conversationConfigOverride: {
-      agent: {
-        firstMessage: greetingForUser(user),
-      },
+      agent: buildConversationInitiationAgentOverride(greetingForUser(user)),
     },
   },
 });
