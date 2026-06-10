@@ -1,4 +1,9 @@
 import { config, requireElevenLabsApiKey } from "../config.ts";
+import {
+  callerNameVariable,
+  findUserByPhone,
+  greetingForUser,
+} from "../db/users.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
 
 requireElevenLabsApiKey();
@@ -25,10 +30,23 @@ const client = createElevenLabsClient();
 
 console.log(`Placing test call to ${customerNumber}...`);
 
+const user = findUserByPhone(customerNumber);
+
 const call = await client.conversationalAi.twilio.outboundCall({
   agentId,
   agentPhoneNumberId: phoneNumberId,
   toNumber: customerNumber,
+  conversationInitiationClientData: {
+    userId: user?.id,
+    dynamicVariables: {
+      caller_name: callerNameVariable(user),
+    },
+    conversationConfigOverride: {
+      agent: {
+        firstMessage: greetingForUser(user),
+      },
+    },
+  },
 });
 
 console.log(`Call created: ${call.conversationId ?? call.callSid ?? "unknown"}`);
