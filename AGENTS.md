@@ -68,7 +68,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Requires `ELEVENLABS_TEST_PHONE_NUMBER` in `.env` (E.164 format).
 
-After changing persona or tool config (`src/assistant/*`, `src/elevenlabs/*`):
+After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`):
 
 ```bash
 bun run sync:agent
@@ -107,7 +107,9 @@ Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold
 | Path | Role |
 |------|------|
 | `src/assistant/` | Persona text and voice ID (source of truth for prompts) |
-| `src/elevenlabs/` | Agent + tool definitions pushed to ElevenLabs via SDK scripts |
+| `src/elevenlabs/voice-stack.ts` | LLM, STT (ASR), TTS, turn-taking, call limits |
+| `src/elevenlabs/alfred.ts` | Assembles full agent config for the API |
+| `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, etc.) |
 | `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/tools/*`) |
 | `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call` |
