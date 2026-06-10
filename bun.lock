@@ -6,7 +6,6 @@
       "name": "alfred",
       "dependencies": {
         "@elevenlabs/elevenlabs-js": "^2.52.0",
-        "@vapi-ai/server-sdk": "^1.2.0",
       },
       "devDependencies": {
         "@elevenlabs/cli": "^0.5.3",
@@ -35,8 +34,6 @@
     "@types/read": ["@types/read@0.0.32", "", {}, "sha512-BbcOjC8nPoAKYK500K4ckuAJgiSZKc+4SBc+Isnf7AP088RNvCTqFay69bnRG6oOYf3/Kba4DVMLFEUrgAlZtA=="],
 
     "@types/tinycolor2": ["@types/tinycolor2@1.4.6", "", {}, "sha512-iEN8J0BoMnsWBqjVbWH/c0G0Hh7O21lpR2/+PrvAVgWdzL7eexIFm4JN/Wn10PTcmNdtS6U67r499mlWMXOxNw=="],
-
-    "@vapi-ai/server-sdk": ["@vapi-ai/server-sdk@1.2.0", "", {}, "sha512-0Ys/MEs+JoxmKQ/bTzMHUCJvzEWu+/XcFiN2m/GjTqVB2Uwv8Vi91D1/YGbRUH+q1aCBSH3g+yIOFroDDlJF1A=="],
 
     "ansi-escapes": ["ansi-escapes@7.3.0", "", { "dependencies": { "environment": "^1.0.0" } }, "sha512-BvU8nYgGQBxcmMuEeUEmNTvrMVjJNSH7RgW24vXexN4Ven6qCvy4TntnvlnwnMLTVlcRQQdbRY8NKnaIoeWDNg=="],
 

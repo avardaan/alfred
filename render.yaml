@@ -17,6 +17,3 @@ projects:
             dockerfilePath: ./Dockerfile
             dockerContext: .
             healthCheckPath: /health
-            envVars:
-              - key: VAPI_ASSISTANT_ID
-                sync: false
