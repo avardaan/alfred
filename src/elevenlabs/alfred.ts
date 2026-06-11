@@ -2,6 +2,8 @@ import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
 import {
   ALFRED_CALLER_NAME_VARIABLE,
   ALFRED_FIRST_MESSAGE,
+  ALFRED_HINDI_FIRST_MESSAGE,
+  ALFRED_HINDI_SYSTEM_PROMPT,
   ALFRED_SYSTEM_PROMPT,
   ALFRED_VOICE_ID,
 } from "../assistant/alfred.ts";
@@ -22,7 +24,19 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
       voiceId: ALFRED_VOICE_ID,
     },
     conversation: ALFRED_CONVERSATION,
-    languagePresets: {},
+    languagePresets: {
+      hi: {
+        overrides: {
+          agent: {
+            language: "hi",
+            firstMessage: ALFRED_HINDI_FIRST_MESSAGE,
+            prompt: {
+              prompt: ALFRED_HINDI_SYSTEM_PROMPT,
+            },
+          },
+        },
+      },
+    },
     agent: {
       firstMessage: ALFRED_FIRST_MESSAGE,
       language: "en",
@@ -36,6 +50,14 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
         prompt: ALFRED_SYSTEM_PROMPT,
         llm: ALFRED_LLM,
         toolIds: [toolId],
+        builtInTools: {
+          languageDetection: {
+            name: "language_detection",
+            params: {
+              systemToolType: "language_detection",
+            },
+          },
+        },
       },
     },
   };
