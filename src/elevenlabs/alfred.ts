@@ -9,25 +9,9 @@ import {
   ALFRED_ASR,
   ALFRED_CONVERSATION,
   ALFRED_LLM,
-  ALFRED_PLATFORM_LANGUAGE,
-  ALFRED_SPOKEN_LANGUAGE,
   ALFRED_TTS,
   ALFRED_TURN,
 } from "./voice-stack.ts";
-
-export function buildConversationInitiationAgentOverride(firstMessage: string) {
-  return {
-    language: ALFRED_SPOKEN_LANGUAGE,
-    firstMessage,
-  };
-}
-
-export function buildConversationInitiationAgentOverrideWebhook(firstMessage: string) {
-  return {
-    language: ALFRED_SPOKEN_LANGUAGE,
-    first_message: firstMessage,
-  };
-}
 
 export function buildAlfredConversationConfig(toolId: string): ElevenLabs.ConversationalConfig {
   return {
@@ -38,18 +22,10 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
       voiceId: ALFRED_VOICE_ID,
     },
     conversation: ALFRED_CONVERSATION,
-    languagePresets: {
-      [ALFRED_SPOKEN_LANGUAGE]: {
-        overrides: {
-          agent: {
-            language: ALFRED_SPOKEN_LANGUAGE,
-          },
-        },
-      },
-    },
+    languagePresets: {},
     agent: {
       firstMessage: ALFRED_FIRST_MESSAGE,
-      language: ALFRED_PLATFORM_LANGUAGE,
+      language: "en",
       disableFirstMessageInterruptions: true,
       dynamicVariables: {
         dynamicVariablePlaceholders: {
