@@ -6,7 +6,7 @@ const DB_PATH = new URL("../../db/db.json", import.meta.url);
 
 export type User = {
   id: string;
-  phone_number: string;
+  phone_numbers: string[];
   name: string;
 };
 
@@ -36,6 +36,10 @@ export function normalizePhone(phone: string): string {
   return digits ? `+${digits}` : trimmed;
 }
 
+export function userPhoneNumbers(user: User): string[] {
+  return user.phone_numbers.map(normalizePhone).filter(Boolean);
+}
+
 function loadUsers(): User[] {
   const raw = readFileSync(DB_PATH, "utf-8");
   const db = JSON.parse(raw) as DbFile;
@@ -44,7 +48,7 @@ function loadUsers(): User[] {
 
 export function findUserByPhone(phone: string): User | undefined {
   const normalized = normalizePhone(phone);
-  return loadUsers().find((user) => normalizePhone(user.phone_number) === normalized);
+  return loadUsers().find((user) => userPhoneNumbers(user).includes(normalized));
 }
 
 export function greetingForUser(user: User | undefined): string {

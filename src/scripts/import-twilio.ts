@@ -18,6 +18,14 @@ if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
 
 const client = createElevenLabsClient();
 
+const existing = await client.conversationalAi.phoneNumbers.list();
+const stale = existing.filter((entry) => entry.phoneNumber === twilioPhoneNumber);
+
+for (const entry of stale) {
+  console.log(`Removing stale ElevenLabs import ${entry.phoneNumberId}...`);
+  await client.conversationalAi.phoneNumbers.delete(entry.phoneNumberId);
+}
+
 console.log(`Importing Twilio number ${twilioPhoneNumber} into ElevenLabs...`);
 
 const phoneNumber = await client.conversationalAi.phoneNumbers.create({
@@ -35,5 +43,6 @@ await client.conversationalAi.phoneNumbers.update(phoneNumber.phoneNumberId, {
 console.log(`Phone number imported: ${twilioPhoneNumber}`);
 console.log(`Phone number id: ${phoneNumber.phoneNumberId}`);
 console.log(`Linked to agent: ${agentId}`);
+console.log("SMS + voice webhooks configured on Twilio via ElevenLabs.");
 console.log("\nUpdate your .env (do not commit it):");
 console.log(`ELEVENLABS_PHONE_NUMBER_ID=${phoneNumber.phoneNumberId}`);
