@@ -39,6 +39,8 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    bun run import:twilio
    ```
 
+   Re-run after ElevenLabs adds SMS support or if inbound texts are not replied to — the script re-imports the number and sets Twilio `sms_url` to ElevenLabs. Inbound SMS uses the same assigned Alfred agent as voice.
+
 5. **Set post-call webhook** in ElevenLabs Dashboard → Agents → Webhooks:
 
    ```
@@ -74,7 +76,7 @@ After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or
 bun run sync:agent
 ```
 
-Inbound calls personalize via `/webhook/elevenlabs/init` (configured on the agent by `sync:agent`). Outbound `test:call` passes the same lookup via `conversationInitiationClientData`.
+Inbound calls and SMS personalize via `/webhook/elevenlabs/init` when ElevenLabs sends `caller_id` (configured on the agent by `sync:agent`). Outbound `test:call` passes the same lookup via `conversationInitiationClientData`.
 
 **Never commit `.env` or any API keys, tokens, or real phone numbers.**
 

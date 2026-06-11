@@ -2,7 +2,7 @@
   "users": [
     {
       "id": "+15109792557",
-      "phone_number": "+15109792557",
+      "phone_numbers": ["+15109792557"],
       "name": "Vardaan"
     }
   ]
