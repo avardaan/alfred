@@ -41,11 +41,13 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Re-run after ElevenLabs adds SMS support or if inbound texts are not replied to — the script re-imports the number and sets Twilio `sms_url` to ElevenLabs. Inbound SMS uses the same assigned Alfred agent as voice.
 
-5. **Set post-call webhook** in ElevenLabs Dashboard → Agents → Webhooks:
+5. **Sync ElevenLabs URLs** (after Render deploy or URL change):
 
+   ```bash
+   bun run sync:agent
    ```
-   https://<your-public-url>/webhook/elevenlabs
-   ```
+
+   Updates init webhook, post-call webhook, weather tool, and agent config from `ELEVENLABS_SERVER_URL`.
 
 6. **Start the server**
 
@@ -70,11 +72,13 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Requires `ELEVENLABS_TEST_PHONE_NUMBER` in `.env` (E.164 format).
 
-After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or user DB / init webhook:
+After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or user DB / init webhook, publish to ElevenLabs Main:
 
 ```bash
 bun run sync:agent
 ```
+
+`sync:agent` commits a new version on Main (no lingering draft) and updates init webhook, post-call webhook, weather tool, and agent config from `ELEVENLABS_SERVER_URL`.
 
 Inbound calls and SMS personalize via `/webhook/elevenlabs/init` when ElevenLabs sends `caller_id` (configured on the agent by `sync:agent`). Outbound `test:call` passes the same lookup via `conversationInitiationClientData`.
 
@@ -90,7 +94,7 @@ Alfred runs on Render as a Docker web service. ElevenLabs hits:
 | `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db/db.json`, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 
-**Render project:** [alfred (prj-d8jr6a42m8qs739eed9g)](https://dashboard.render.com/project/prj-d8jr6a42m8qs739eed9g)
+**Render project:** [alfred (prj-d8o80amrnols73cnmq40)](https://dashboard.render.com/project/prj-d8o80amrnols73cnmq40) — workspace `alfred`, URL `https://alfred-5fg9.onrender.com`
 
 The running server needs no secrets on Render — tool and webhook routes are unauthenticated. Keep API keys in local `.env` for scripts only.
 
@@ -113,8 +117,11 @@ Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold
 |------|------|
 | `src/assistant/` | Persona text and voice ID (source of truth for prompts) |
 | `src/elevenlabs/voice-stack.ts` | LLM, STT (ASR), TTS, turn-taking, call limits |
+| `src/elevenlabs/overrides.ts` | Security override permissions for the agent |
+| `src/elevenlabs/agent-sync.ts` | Publish agent updates to ElevenLabs Main branch |
 | `src/elevenlabs/alfred.ts` | Assembles full agent config for the API |
 | `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
+| `src/elevenlabs/webhooks.ts` | Post-call workspace webhook synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, etc.) |
 | `src/routes/` | HTTP handlers (`/webhook/elevenlabs`, `/webhook/elevenlabs/init`, `/tools/*`) |
 | `src/db/` | User lookup helpers (reads `db/db.json`) |

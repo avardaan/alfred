@@ -14,6 +14,7 @@ import {
   ALFRED_TTS,
   ALFRED_TURN,
 } from "./voice-stack.ts";
+import { ALFRED_OVERRIDE_PERMISSIONS } from "./overrides.ts";
 
 export function buildAlfredConversationConfig(toolId: string): ElevenLabs.ConversationalConfig {
   return {
@@ -63,26 +64,32 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
   };
 }
 
-export function buildAlfredAgentRequest(toolId: string, serverUrl: string) {
+export function buildAlfredAgentRequest(
+  toolId: string,
+  serverUrl: string,
+  postCallWebhookId?: string,
+) {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
     name: "Alfred",
     conversationConfig: buildAlfredConversationConfig(toolId),
     platformSettings: {
-      overrides: {
-        enableConversationInitiationClientDataFromWebhook: true,
-        conversationConfigOverride: {
-          agent: {
-            firstMessage: true,
-          },
-        },
-      },
+      overrides: ALFRED_OVERRIDE_PERMISSIONS,
       workspaceOverrides: {
         conversationInitiationClientDataWebhook: {
           url: `${baseUrl}/webhook/elevenlabs/init`,
           requestHeaders: {},
         },
+        ...(postCallWebhookId
+          ? {
+              webhooks: {
+                postCallWebhookId,
+                events: ["transcript"],
+                transcriptFormat: "json",
+              },
+            }
+          : {}),
       },
     },
   };

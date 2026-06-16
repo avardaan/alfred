@@ -4,8 +4,10 @@ import {
   requireElevenLabsServerUrl,
 } from "../config.ts";
 import { buildAlfredAgentRequest } from "../elevenlabs/alfred.ts";
+import { publishAgentUpdate } from "../elevenlabs/agent-sync.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
 import { ensureGetWeatherTool } from "../elevenlabs/tools.ts";
+import { buildPostCallWebhookUrl, ensurePostCallWebhook } from "../elevenlabs/webhooks.ts";
 
 requireElevenLabsApiKey();
 const serverUrl = requireElevenLabsServerUrl();
@@ -14,14 +16,15 @@ const client = createElevenLabsClient();
 
 console.log(`Ensuring get_weather tool → ${serverUrl}/tools/get_weather`);
 const toolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
+const postCallWebhookId = await ensurePostCallWebhook(serverUrl);
 
 if (config.elevenLabsAgentId) {
-  console.log(`Updating agent ${config.elevenLabsAgentId}...`);
-  await client.conversationalAi.agents.update(
+  console.log(`Publishing agent ${config.elevenLabsAgentId} to Main...`);
+  await publishAgentUpdate(
     config.elevenLabsAgentId,
-    buildAlfredAgentRequest(toolId, serverUrl),
+    buildAlfredAgentRequest(toolId, serverUrl, postCallWebhookId),
   );
-  console.log(`Agent updated: ${config.elevenLabsAgentId}`);
+  console.log(`Agent published: ${config.elevenLabsAgentId}`);
   console.log(`Weather tool id: ${toolId}`);
   console.log("\nAdd to .env if missing:");
   console.log(`ELEVENLABS_WEATHER_TOOL_ID=${toolId}`);
@@ -29,14 +32,15 @@ if (config.elevenLabsAgentId) {
 }
 
 console.log("Creating Alfred agent on ElevenLabs...");
-const created = await client.conversationalAi.agents.create(buildAlfredAgentRequest(toolId, serverUrl));
+const created = await client.conversationalAi.agents.create(
+  buildAlfredAgentRequest(toolId, serverUrl, postCallWebhookId),
+);
 
 console.log(`Agent created: ${created.agentId}`);
 console.log(`Weather tool id: ${toolId}`);
 console.log("\nAdd to .env (do not commit):");
 console.log(`ELEVENLABS_AGENT_ID=${created.agentId}`);
 console.log(`ELEVENLABS_WEATHER_TOOL_ID=${toolId}`);
-console.log("\nNext:");
-console.log("1. In ElevenLabs → Agents → Settings → Webhooks, set post-call URL to:");
-console.log(`   ${serverUrl.replace(/\/$/, "")}/webhook/elevenlabs`);
-console.log("2. Import Twilio: bun run import:twilio");
+console.log(`Post-call webhook id: ${postCallWebhookId}`);
+console.log(`Post-call URL: ${buildPostCallWebhookUrl(serverUrl)}`);
+console.log("\nNext: bun run import:twilio");
