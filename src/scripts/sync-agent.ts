@@ -2,7 +2,6 @@ import { config, requireElevenLabsApiKey, requireElevenLabsServerUrl } from "../
 import { publishAgentUpdate } from "../elevenlabs/agent-sync.ts";
 import { buildAlfredAgentRequest } from "../elevenlabs/alfred.ts";
 import { ensureGetWeatherTool } from "../elevenlabs/tools.ts";
-import { buildPostCallWebhookUrl, ensurePostCallWebhook } from "../elevenlabs/webhooks.ts";
 
 requireElevenLabsApiKey();
 const serverUrl = requireElevenLabsServerUrl();
@@ -13,12 +12,9 @@ if (!agentId) {
 }
 
 const toolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
-const postCallWebhookId = await ensurePostCallWebhook(serverUrl);
 
 console.log(`Publishing agent ${agentId} to Main...`);
-await publishAgentUpdate(agentId, buildAlfredAgentRequest(toolId, serverUrl, postCallWebhookId));
+await publishAgentUpdate(agentId, buildAlfredAgentRequest(toolId, serverUrl));
 
 console.log("Agent published.");
 console.log(`Weather tool id: ${toolId}`);
-console.log(`Post-call webhook id: ${postCallWebhookId}`);
-console.log(`Post-call URL: ${buildPostCallWebhookUrl(serverUrl)}`);

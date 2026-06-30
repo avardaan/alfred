@@ -64,11 +64,7 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
   };
 }
 
-export function buildAlfredAgentRequest(
-  toolId: string,
-  serverUrl: string,
-  postCallWebhookId?: string,
-) {
+export function buildAlfredAgentRequest(toolId: string, serverUrl: string) {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
@@ -81,15 +77,6 @@ export function buildAlfredAgentRequest(
           url: `${baseUrl}/webhook/elevenlabs/init`,
           requestHeaders: {},
         },
-        ...(postCallWebhookId
-          ? {
-              webhooks: {
-                postCallWebhookId,
-                events: ["transcript"],
-                transcriptFormat: "json",
-              },
-            }
-          : {}),
       },
     },
   };
