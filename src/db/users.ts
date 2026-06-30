@@ -1,4 +1,5 @@
 import { arrayContains } from "drizzle-orm";
+import { parsePhoneNumber } from "libphonenumber-js";
 
 import { ALFRED_GREETING } from "../assistant/alfred.ts";
 import { db } from "./client.ts";
@@ -6,23 +7,50 @@ import { users, type User } from "./schema.ts";
 
 export type { User };
 
+/**
+ * Normalize a phone number to E.164 (`+<country><subscriber>`, no formatting).
+ *
+ * Routing by shape so libphonenumber gets the right country context:
+ *  - `+` prefix → country code is explicit, parse as-is
+ *  - bare 10 digits → US national number (Alfred's primary voice market)
+ *  - anything else with digits → prepend `+` and let libphonenumber detect the
+ *    country (handles Indian WhatsApp `919876543210` → `+919876543210`, and
+ *    `15109792557` → `+15109792557`).
+ *
+ * Always returns a string and never throws; unparseable input falls back to the
+ * trimmed original, which won't match any stored E.164 number (safe no-match).
+ */
 export function normalizePhone(phone: string): string {
   const trimmed = phone.trim();
   if (!trimmed) {
-    return trimmed;
-  }
-
-  if (trimmed.startsWith("+")) {
-    return `+${trimmed.slice(1).replace(/\D/g, "")}`;
+    return "";
   }
 
   const digits = trimmed.replace(/\D/g, "");
-  if (digits.length === 10) {
-    return `+1${digits}`;
+
+  let parseInput = trimmed;
+  let defaultCountry: "US" | undefined;
+
+  if (trimmed.startsWith("+")) {
+    parseInput = trimmed;
+  } else if (digits.length === 10) {
+    parseInput = digits;
+    defaultCountry = "US";
+  } else if (digits) {
+    parseInput = `+${digits}`;
+  } else {
+    return trimmed;
   }
 
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `+${digits}`;
+  try {
+    const parsed = defaultCountry
+      ? parsePhoneNumber(parseInput, defaultCountry)
+      : parsePhoneNumber(parseInput);
+    if (parsed) {
+      return parsed.number;
+    }
+  } catch {
+    // unparseable — fall through to digit-based E.164
   }
 
   return digits ? `+${digits}` : trimmed;

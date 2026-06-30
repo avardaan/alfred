@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD CONSTRAINT "users_phone_numbers_e164" CHECK (array_to_string("users"."phone_numbers", '|') ~ '^[+][1-9][0-9]{6,14}([|][+][1-9][0-9]{6,14})*$');
