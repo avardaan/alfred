@@ -9,6 +9,7 @@ type ElevenLabsInitWebhookBody = {
   agent_id?: string;
   called_number?: string;
   call_sid?: string;
+  conversation_id?: string;
 };
 
 export async function handleElevenLabsInitWebhook(req: Request): Promise<Response> {
@@ -23,18 +24,26 @@ export async function handleElevenLabsInitWebhook(req: Request): Promise<Respons
   const callerId = body.caller_id?.trim();
   if (!callerId) {
     console.log("[elevenlabs/init] missing caller_id:", body);
-    return Response.json(buildInitResponse(undefined));
+    return Response.json(buildInitResponse(undefined, false));
   }
 
   const user = await findUserByPhone(callerId);
+  // Text-initiated channels (WhatsApp, widget) send an empty call_sid and the
+  // user's message is already queued — a first_message greeting would be
+  // redundant (agent greets, then also replies to the message). Suppress it so
+  // the agent just responds to the user's actual text.
+  const isVoiceCall = Boolean(body.call_sid);
   console.log(
-    `[elevenlabs/init] caller ${callerId} → ${user?.name ?? "unknown"} (${body.call_sid ?? "no sid"})`,
+    `[elevenlabs/init] caller ${callerId} → ${user?.name ?? "unknown"} (${body.call_sid ?? "no sid"}) [${isVoiceCall ? "voice" : "text"}]`,
   );
 
-  return Response.json(buildInitResponse(user));
+  return Response.json(buildInitResponse(user, isVoiceCall));
 }
 
-function buildInitResponse(user: Awaited<ReturnType<typeof findUserByPhone>>) {
+function buildInitResponse(
+  user: Awaited<ReturnType<typeof findUserByPhone>>,
+  includeGreeting: boolean,
+) {
   return {
     type: "conversation_initiation_client_data",
     user_id: user?.id,
@@ -43,7 +52,9 @@ function buildInitResponse(user: Awaited<ReturnType<typeof findUserByPhone>>) {
     },
     conversation_config_override: {
       agent: {
-        first_message: greetingForUser(user),
+        // On text channels (WhatsApp, widget) the user's message is already
+        // queued — suppress the greeting so the agent responds to it directly.
+        first_message: includeGreeting ? greetingForUser(user) : "",
       },
     },
   };

@@ -44,5 +44,5 @@ export const ALFRED_TURN: ElevenLabs.TurnConfig = {
 /** Call session limits. */
 export const ALFRED_CONVERSATION: ElevenLabs.ConversationConfigOutput = {
   textOnly: false,
-  maxDurationSeconds: 600,
+  maxDurationSeconds: 60,
 };
