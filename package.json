@@ -10,13 +10,19 @@
     "setup": "bun src/scripts/setup.ts",
     "import:twilio": "bun src/scripts/import-twilio.ts",
     "sync:agent": "bun src/scripts/sync-agent.ts",
-    "test:call": "bun src/scripts/test-call.ts"
+    "test:call": "bun src/scripts/test-call.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@elevenlabs/elevenlabs-js": "^2.52.0"
+    "@elevenlabs/elevenlabs-js": "^2.52.0",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.10"
   },
   "peerDependencies": {
     "typescript": "^5"

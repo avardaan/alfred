@@ -26,7 +26,7 @@ export async function handleElevenLabsInitWebhook(req: Request): Promise<Respons
     return Response.json(buildInitResponse(undefined));
   }
 
-  const user = findUserByPhone(callerId);
+  const user = await findUserByPhone(callerId);
   console.log(
     `[elevenlabs/init] caller ${callerId} → ${user?.name ?? "unknown"} (${body.call_sid ?? "no sid"})`,
   );
@@ -34,7 +34,7 @@ export async function handleElevenLabsInitWebhook(req: Request): Promise<Respons
   return Response.json(buildInitResponse(user));
 }
 
-function buildInitResponse(user: ReturnType<typeof findUserByPhone>) {
+function buildInitResponse(user: Awaited<ReturnType<typeof findUserByPhone>>) {
   return {
     type: "conversation_initiation_client_data",
     user_id: user?.id,

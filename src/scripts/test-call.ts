@@ -30,7 +30,7 @@ const client = createElevenLabsClient();
 
 console.log(`Placing test call to ${customerNumber}...`);
 
-const user = findUserByPhone(customerNumber);
+const user = await findUserByPhone(customerNumber);
 
 const call = await client.conversationalAi.twilio.outboundCall({
   agentId,

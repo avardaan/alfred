@@ -13,6 +13,7 @@ function required(name: string): string {
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
+  databaseUrl: optional("DATABASE_URL"),
   elevenLabsApiKey: optional("ELEVENLABS_API_KEY"),
   elevenLabsServerUrl: optional("ELEVENLABS_SERVER_URL"),
   elevenLabsAgentId: optional("ELEVENLABS_AGENT_ID"),
@@ -30,4 +31,8 @@ export function requireElevenLabsApiKey(): string {
 
 export function requireElevenLabsServerUrl(): string {
   return required("ELEVENLABS_SERVER_URL");
+}
+
+export function requireDatabaseUrl(): string {
+  return required("DATABASE_URL");
 }

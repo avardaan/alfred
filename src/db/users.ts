@@ -1,18 +1,10 @@
-import { readFileSync } from "node:fs";
+import { arrayContains } from "drizzle-orm";
 
 import { ALFRED_GREETING } from "../assistant/alfred.ts";
+import { db } from "./client.ts";
+import { users, type User } from "./schema.ts";
 
-const DB_PATH = new URL("../../db/db.json", import.meta.url);
-
-export type User = {
-  id: string;
-  phone_numbers: string[];
-  name: string;
-};
-
-type DbFile = {
-  users: User[];
-};
+export type { User };
 
 export function normalizePhone(phone: string): string {
   const trimmed = phone.trim();
@@ -37,18 +29,17 @@ export function normalizePhone(phone: string): string {
 }
 
 export function userPhoneNumbers(user: User): string[] {
-  return user.phone_numbers.map(normalizePhone).filter(Boolean);
+  return user.phoneNumbers.map(normalizePhone).filter(Boolean);
 }
 
-function loadUsers(): User[] {
-  const raw = readFileSync(DB_PATH, "utf-8");
-  const db = JSON.parse(raw) as DbFile;
-  return db.users ?? [];
-}
-
-export function findUserByPhone(phone: string): User | undefined {
+export async function findUserByPhone(phone: string): Promise<User | undefined> {
   const normalized = normalizePhone(phone);
-  return loadUsers().find((user) => userPhoneNumbers(user).includes(normalized));
+  const rows = await db
+    .select()
+    .from(users)
+    .where(arrayContains(users.phoneNumbers, [normalized]))
+    .limit(1);
+  return rows[0];
 }
 
 export function greetingForUser(user: User | undefined): string {

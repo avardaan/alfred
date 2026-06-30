@@ -5,6 +5,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 ## Prerequisites
 
 - [Bun](https://bun.sh) (runtime + package manager)
+- [PostgreSQL](https://www.postgresql.org/) 13+ (Alfred uses Postgres for user storage)
 - An [ElevenLabs](https://elevenlabs.io) account and API key with ConvAI scopes
 
 ## Quick start
@@ -21,7 +22,13 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    cp .env.example .env
    ```
 
-   Fill in at least `ELEVENLABS_API_KEY` and `ELEVENLABS_SERVER_URL`. See `.env.example` for what each variable does.
+   Fill in at least `DATABASE_URL`, `ELEVENLABS_API_KEY`, and `ELEVENLABS_SERVER_URL`. See `.env.example` for what each variable does.
+
+   Apply database migrations:
+
+   ```bash
+   bun run db:migrate
+   ```
 
 3. **Provision ElevenLabs resources**
 
@@ -72,7 +79,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Requires `ELEVENLABS_TEST_PHONE_NUMBER` in `.env` (E.164 format).
 
-After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or user DB / init webhook, publish to ElevenLabs Main:
+After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or init webhook, publish to ElevenLabs Main:
 
 ```bash
 bun run sync:agent
@@ -90,12 +97,12 @@ Alfred runs on a Hetzner VPS behind [Caddy](https://caddyserver.com), which term
 
 | Route | Purpose |
 |-------|---------|
-| `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db/db.json`, personalize greeting |
+| `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in Postgres, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 
 **Host:** Hetzner VPS `62.238.47.91` (SSH alias `alfred`, user `vardaan`). Public URL `https://62-238-47-91.sslip.io` — the [sslip.io](https://sslip.io) hostname maps to the IP so Let's Encrypt can issue a cert for an otherwise bare-IP host. The Hetzner firewall allows ports 80 and 443.
 
-The running server needs no secrets — tool and webhook routes are unauthenticated. Keep API keys in local `.env` for scripts only.
+The running server needs `DATABASE_URL` (Postgres); tool and webhook routes are otherwise unauthenticated. Keep API keys in local `.env` for scripts only.
 
 ### Process (systemd)
 
@@ -126,12 +133,23 @@ Caddy runs as a systemd service and auto-provisions/renews the Let's Encrypt cer
 
 Reload after edits with `sudo systemctl reload caddy`.
 
+### Database (PostgreSQL)
+
+PostgreSQL 18 runs on the VPS, bound to `127.0.0.1:5432` (not exposed publicly). The `alfred` role owns the `alfred` database; `DATABASE_URL` in `.env` points the app at it. Schema is defined in `src/db/schema.ts` (Drizzle ORM); migrations live in `drizzle/` and are applied with `bun run db:migrate`.
+
+Back up with `pg_dump`:
+
+```bash
+sudo -u postgres pg_dump alfred | gzip > alfred_$(date +%F).sql.gz
+```
+
 ## Stack
 
 - **Runtime:** Bun
 - **Language:** TypeScript (strict, ESM, `.ts` imports with extensions)
 - **Voice:** ElevenAgents — `@elevenlabs/elevenlabs-js`, configured in `src/elevenlabs/*`
 - **Persona:** `src/assistant/alfred.ts` (prompt, greeting, voice ID)
+- **Database:** PostgreSQL + [Drizzle ORM](https://orm.drizzle.team) (postgres-js driver), schema in `src/db/schema.ts`
 
 ### Layout
 
@@ -145,9 +163,10 @@ Reload after edits with `sudo systemctl reload caddy`.
 | `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, etc.) |
 | `src/routes/` | HTTP handlers (`/webhook/elevenlabs/init`, `/tools/*`) |
-| `src/db/` | User lookup helpers (reads `db/db.json`) |
-| `db/db.json` | Committed user records (phone → name); init webhook reads this |
-| `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call` |
+| `src/db/` | Drizzle schema (`schema.ts`), client (`client.ts`), user lookup helpers (`users.ts`) |
+| `drizzle.config.ts` | Drizzle Kit config (schema path, migrations folder, DB URL) |
+| `drizzle/` | Generated SQL migrations (applied with `bun run db:migrate`) |
+| `src/scripts/` | `setup`, `sync:agent`, `import:twilio`, `test:call`, `db:generate`, `db:migrate`, `db:push` |
 
 ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:agent`, not the ElevenLabs CLI.
 
@@ -165,6 +184,8 @@ ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:a
 - ElevenLabs webhook tools POST `requestBodySchema` fields directly (e.g. `{ "location": "..." }`), not always wrapped in `parameters`.
 - Tool handlers return plain strings; the webhook responds with `{ result: "..." }`.
 - Run `bun run sync:agent` after changing `src/assistant/alfred.ts` or `src/elevenlabs/*`.
+- Run `bun run db:generate` then `bun run db:migrate` after changing `src/db/schema.ts`.
+- `findUserByPhone` is async (queries Postgres); consumers must `await` it.
 
 ## Docs
 
