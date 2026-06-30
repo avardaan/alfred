@@ -1,6 +1,6 @@
 import { createElevenLabsClient } from "./client.ts";
 
-export const POST_CALL_WEBHOOK_NAME = "alfred render server";
+export const POST_CALL_WEBHOOK_NAME = "alfred post-call webhook";
 
 const POST_CALL_WEBHOOK_EVENTS = ["transcript"] as const;
 

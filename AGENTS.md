@@ -41,7 +41,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
    Re-run after ElevenLabs adds SMS support or if inbound texts are not replied to — the script re-imports the number and sets Twilio `sms_url` to ElevenLabs. Inbound SMS uses the same assigned Alfred agent as voice.
 
-5. **Sync ElevenLabs URLs** (after Render deploy or URL change):
+5. **Sync ElevenLabs URLs** (after deploy or URL change):
 
    ```bash
    bun run sync:agent
@@ -62,7 +62,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    curl https://<your-public-url>/health
    ```
 
-   `ELEVENLABS_SERVER_URL` must be a public URL ElevenLabs can reach (Codespaces forwarded port, ngrok, Render, etc.). Do not include path suffixes — the app uses `/webhook/elevenlabs` and `/tools/get_weather`.
+   `ELEVENLABS_SERVER_URL` must be a public URL ElevenLabs can reach (Codespaces forwarded port, ngrok, a VPS, etc.). Do not include path suffixes — the app uses `/webhook/elevenlabs` and `/tools/get_weather`.
 
 8. **Place an outbound test call**
 
@@ -84,9 +84,9 @@ Inbound calls and SMS personalize via `/webhook/elevenlabs/init` when ElevenLabs
 
 **Never commit `.env` or any API keys, tokens, or real phone numbers.**
 
-## Deploy to Render
+## Deploy (Hetzner VPS)
 
-Alfred runs on Render as a Docker web service. ElevenLabs hits:
+Alfred runs on a Hetzner VPS behind [Caddy](https://caddyserver.com), which terminates TLS and reverse-proxies to the Bun server on `127.0.0.1:3000`. ElevenLabs hits:
 
 | Route | Purpose |
 |-------|---------|
@@ -94,15 +94,38 @@ Alfred runs on Render as a Docker web service. ElevenLabs hits:
 | `/webhook/elevenlabs/init` | Inbound call initiation — lookup caller in `db/db.json`, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 
-**Render project:** [alfred (prj-d8o80amrnols73cnmq40)](https://dashboard.render.com/project/prj-d8o80amrnols73cnmq40) — workspace `alfred`, URL `https://alfred-5fg9.onrender.com`
+**Host:** Hetzner VPS `62.238.47.91` (SSH alias `alfred`, user `vardaan`). Public URL `https://62-238-47-91.sslip.io` — the [sslip.io](https://sslip.io) hostname maps to the IP so Let's Encrypt can issue a cert for an otherwise bare-IP host. The Hetzner firewall allows ports 80 and 443.
 
-The running server needs no secrets on Render — tool and webhook routes are unauthenticated. Keep API keys in local `.env` for scripts only.
+The running server needs no secrets — tool and webhook routes are unauthenticated. Keep API keys in local `.env` for scripts only.
 
-Push to `main` — Render auto-deploys (`autoDeployTrigger: commit` in `render.yaml`).
+### Process (systemd)
 
-### Free tier note
+The server runs as a systemd unit at `/etc/systemd/system/alfred.service`: `bun --watch src/index.ts` as `vardaan`, `EnvironmentFile=` the repo `.env`, `Restart=always`, enabled at boot. `--watch` hot-reloads on file changes, so deploying is just updating code on the box:
 
-Free web services spin down after ~15 minutes idle. Inbound calls may hit a cold start. For reliable voice calls, upgrade to **Starter** in the Dashboard or set `plan: starter` in `render.yaml`.
+```bash
+ssh alfred
+cd ~/projects/alfred && git pull   # or edit in place; --watch reloads
+```
+
+Operate it with:
+
+```bash
+systemctl status alfred
+journalctl -u alfred -f
+sudo systemctl restart alfred
+```
+
+### TLS / reverse proxy (Caddy)
+
+Caddy runs as a systemd service and auto-provisions/renews the Let's Encrypt certificate. Config at `/etc/caddy/Caddyfile`:
+
+```caddyfile
+62-238-47-91.sslip.io {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+Reload after edits with `sudo systemctl reload caddy`.
 
 ## Stack
 
@@ -136,7 +159,7 @@ ElevenLabs config is managed with TypeScript + `bun run setup` / `bun run sync:a
 2. **ElevenLabs schema** — add config in `src/elevenlabs/tools.ts` and wire the tool ID in `src/elevenlabs/alfred.ts`
 3. **Prompt** — update `ALFRED_SYSTEM_PROMPT` in `src/assistant/alfred.ts`
 4. **Route** — add a POST handler in `src/index.ts` if the tool needs a dedicated webhook path
-5. **Deploy** — `bun run sync:agent` for ElevenLabs; push code to Render for new routes
+5. **Deploy** — `bun run sync:agent` for ElevenLabs; update code on the VPS for new routes (see Deploy section)
 
 ## Conventions
 
