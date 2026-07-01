@@ -80,7 +80,7 @@ export function buildCreateTaskToolConfig(
   return {
     name: CREATE_TASK_TOOL_NAME,
     description:
-      "Create a task for Alfred to execute. Currently supports calling a business to ask their hours. Requires a phone number — use lookup_business first if you don't have one. Alfred will call the business and report back to the user.",
+      "Create a task for Alfred to place an outbound call. Requires a phone number and a label for who is being called. Alfred will call and report back. Use lookup_business first if you need to find a business phone number.",
     responseTimeoutSecs: 20,
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
@@ -91,11 +91,11 @@ export function buildCreateTaskToolConfig(
         properties: {
           phone: {
             type: "string",
-            description: "The phone number to call in E.164 format, e.g. +15105551234. Get this from lookup_business.",
+            description: "The phone number to call in E.164 format, e.g. +15105551234.",
           },
           business_name: {
             type: "string",
-            description: "The name of the business to call.",
+            description: "A label for who is being called — a business name or a person's name.",
           },
         },
       },

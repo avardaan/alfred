@@ -63,6 +63,8 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  console.log(`[tools/create_task] raw body keys: ${Object.keys(body).join(", ")}`);
+
   const phone = body.phone?.trim();
   const businessName = body.business_name?.trim();
 
