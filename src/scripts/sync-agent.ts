@@ -5,6 +5,7 @@ import { publishAgentUpdate } from "../elevenlabs/agent-sync.ts";
 import {
   ensureCreateTaskTool,
   ensureGetWeatherTool,
+  ensureLookupBusinessTool,
   ensureSubmitTaskResultTool,
 } from "../elevenlabs/tools.ts";
 
@@ -28,11 +29,15 @@ const submitResultToolId = await ensureSubmitTaskResultTool(
   config.elevenLabsSubmitTaskResultToolId,
 );
 const createTaskToolId = await ensureCreateTaskTool(serverUrl, config.elevenLabsCreateTaskToolId);
+const lookupBusinessToolId = await ensureLookupBusinessTool(
+  serverUrl,
+  config.elevenLabsLookupBusinessToolId,
+);
 
 console.log(`\nPublishing inbound agent ${agentId} to Main...`);
 await publishAgentUpdate(
   agentId,
-  buildAlfredAgentRequest([weatherToolId, createTaskToolId], serverUrl),
+  buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
 );
 
 console.log(`Publishing outbound agent ${outboundAgentId} to Main...`);
@@ -42,3 +47,4 @@ console.log("\nAgents published.");
 console.log(`Weather tool: ${weatherToolId}`);
 console.log(`Submit task result tool: ${submitResultToolId}`);
 console.log(`Create task tool: ${createTaskToolId}`);
+console.log(`Lookup business tool: ${lookupBusinessToolId}`);

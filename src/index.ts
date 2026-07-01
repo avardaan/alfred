@@ -2,6 +2,7 @@ import { config } from "./config.ts";
 import { handleElevenLabsInitWebhook } from "./routes/elevenlabs-init-webhook.ts";
 import { handleGetWeatherTool } from "./routes/get-weather-tool.ts";
 import { handleCreateTaskTool } from "./tools/create-task.ts";
+import { handleLookupBusinessTool } from "./tools/lookup-business.ts";
 import { handleSubmitTaskResultTool } from "./tools/submit-task-result.ts";
 
 const server = Bun.serve({
@@ -21,6 +22,9 @@ const server = Bun.serve({
     },
     "/tools/create_task": {
       POST: handleCreateTaskTool,
+    },
+    "/tools/lookup_business": {
+      POST: handleLookupBusinessTool,
     },
     "/tools/submit_task_result": {
       POST: handleSubmitTaskResultTool,

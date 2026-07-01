@@ -15,12 +15,10 @@ import {
   placeNotificationCall,
   placeOutboundCall,
 } from "../elevenlabs/outbound-call.ts";
-import { findBusinessPhone } from "./places.ts";
 
 type CreateTaskBody = {
   phone?: string;
   business_name?: string;
-  location?: string;
   conversation_id?: string;
   user_id?: string;
 };
@@ -67,21 +65,20 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const phone = body.phone?.trim();
   const businessName = body.business_name?.trim();
-  const location = body.location?.trim();
 
   console.log(
-    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} loc=${location ?? "(none)"} conv=${body.conversation_id ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} conv=${body.conversation_id ?? "none"}`,
   );
 
-  if (!businessName) {
+  if (!phone || !businessName) {
     return Response.json({
-      result: "Error: missing business_name. Please provide the business name.",
+      result: "Error: missing phone or business_name. Use lookup_business first to get the phone number.",
     });
   }
 
-  const { userId, conversationId } = await resolveUserId(body);
+  const { userId } = await resolveUserId(body);
 
-  console.log(`[tools/create_task] resolved userId=${userId ?? "none"} conv=${conversationId ?? "none"}`);
+  console.log(`[tools/create_task] resolved userId=${userId ?? "none"}`);
 
   if (!userId) {
     return Response.json({
@@ -89,41 +86,12 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     });
   }
 
-  // Resolve phone number: use provided, or look up via Google Places
-  let resolvedPhone = phone ? normalizePhone(phone) : undefined;
-  let resolvedBusinessName = businessName;
-
-  if (!resolvedPhone) {
-    // Determine the search query: business name + location override or user's primary location
-    const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const primaryLocation = userRows[0]?.primaryLocation;
-
-    const searchQuery = [businessName, location ?? primaryLocation]
-      .filter(Boolean)
-      .join(", ");
-
-    console.log(`[tools/create_task] no phone provided, looking up "${searchQuery}" via Places`);
-    const place = await findBusinessPhone(searchQuery);
-    if (!place) {
-      return Response.json({
-        result: `I couldn't find a phone number for ${businessName}. Could you provide the number directly?`,
-      });
-    }
-    resolvedPhone = normalizePhone(place.phoneNumber);
-    resolvedBusinessName = place.name;
-    console.log(`[tools/create_task] Places resolved: ${resolvedBusinessName} → ${resolvedPhone}`);
-  }
-
-  if (!resolvedPhone) {
-    return Response.json({
-      result: `Error: could not resolve a valid phone number for ${businessName}.`,
-    });
-  }
+  const resolvedPhone = normalizePhone(phone);
 
   // Create the task row
   const task = await createTask(userId, "ask_hours", {
     phone: resolvedPhone,
-    businessName: resolvedBusinessName,
+    businessName,
   });
 
   // Place the outbound call
@@ -152,7 +120,7 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   setTimeout(() => checkTaskTimeout(task.id, attempt.id, batchCallId), COMPLETION_TIMEOUT_MS);
 
   return Response.json({
-    result: `I'll call ${resolvedBusinessName} now and report back with their hours.`,
+    result: `I'll call ${businessName} now and report back with their hours.`,
   });
 }
 

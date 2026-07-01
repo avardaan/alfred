@@ -23,6 +23,7 @@ export const config = {
   elevenLabsOutboundAgentId: optional("ELEVENLABS_OUTBOUND_AGENT_ID"),
   elevenLabsSubmitTaskResultToolId: optional("ELEVENLABS_SUBMIT_TASK_RESULT_TOOL_ID"),
   elevenLabsCreateTaskToolId: optional("ELEVENLABS_CREATE_TASK_TOOL_ID"),
+  elevenLabsLookupBusinessToolId: optional("ELEVENLABS_LOOKUP_BUSINESS_TOOL_ID"),
   googlePlacesApiKey: optional("GOOGLE_PLACES_API_KEY"),
   twilioAccountSid: optional("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optional("TWILIO_AUTH_TOKEN"),

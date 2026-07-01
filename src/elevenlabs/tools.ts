@@ -4,6 +4,7 @@ import { createElevenLabsClient } from "./client.ts";
 export const GET_WEATHER_TOOL_NAME = "get_weather";
 export const SUBMIT_TASK_RESULT_TOOL_NAME = "submit_task_result";
 export const CREATE_TASK_TOOL_NAME = "create_task";
+export const LOOKUP_BUSINESS_TOOL_NAME = "lookup_business";
 
 export function buildGetWeatherToolConfig(serverUrl: string): ElevenLabs.WebhookToolConfigInput {
   const baseUrl = serverUrl.replace(/\/$/, "");
@@ -79,26 +80,53 @@ export function buildCreateTaskToolConfig(
   return {
     name: CREATE_TASK_TOOL_NAME,
     description:
-      "Create a task for Alfred to execute. Currently supports calling a business to ask their hours. Alfred will look up the phone number if not provided. Alfred will call the business and report back to the user.",
-    responseTimeoutSecs: 30,
+      "Create a task for Alfred to execute. Currently supports calling a business to ask their hours. Requires a phone number — use lookup_business first if you don't have one. Alfred will call the business and report back to the user.",
+    responseTimeoutSecs: 20,
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
       method: "POST",
       requestBodySchema: {
         type: "object",
-        required: ["business_name"],
+        required: ["phone", "business_name"],
         properties: {
           phone: {
             type: "string",
-            description: "The phone number to call in E.164 format, e.g. +15105551234. Optional — if omitted, Alfred will look it up from the business name.",
+            description: "The phone number to call in E.164 format, e.g. +15105551234. Get this from lookup_business.",
           },
           business_name: {
             type: "string",
-            description: "The name of the business to call. Include the city if known, e.g. 'Tong Sui Dessert Shop, San Francisco'.",
+            description: "The name of the business to call.",
+          },
+        },
+      },
+    },
+  };
+}
+
+export function buildLookupBusinessToolConfig(
+  serverUrl: string,
+): ElevenLabs.WebhookToolConfigInput {
+  const baseUrl = serverUrl.replace(/\/$/, "");
+
+  return {
+    name: LOOKUP_BUSINESS_TOOL_NAME,
+    description:
+      "Look up a business by name to get its phone number and address. Returns the top match. Use this before create_task when the user doesn't already have a phone number, so you can read back the name and address for confirmation.",
+    responseTimeoutSecs: 15,
+    apiSchema: {
+      url: `${baseUrl}/tools/lookup_business`,
+      method: "POST",
+      requestBodySchema: {
+        type: "object",
+        required: ["business_name"],
+        properties: {
+          business_name: {
+            type: "string",
+            description: "The name of the business to look up.",
           },
           location: {
             type: "string",
-            description: "City or area to search in, e.g. 'San Francisco' or 'Oakland'. Optional — if omitted, Alfred uses the user's primary location.",
+            description: "City or area to search in, e.g. 'San Francisco'. Optional — if omitted, uses the user's primary location.",
           },
         },
       },
@@ -161,4 +189,12 @@ export async function ensureCreateTaskTool(serverUrl: string, toolId?: string): 
     ...buildCreateTaskToolConfig(serverUrl),
   };
   return ensureWebhookTool(toolConfig, CREATE_TASK_TOOL_NAME, toolId);
+}
+
+export async function ensureLookupBusinessTool(serverUrl: string, toolId?: string): Promise<string> {
+  const toolConfig: ElevenLabs.ToolRequestModelToolConfig = {
+    type: "webhook",
+    ...buildLookupBusinessToolConfig(serverUrl),
+  };
+  return ensureWebhookTool(toolConfig, LOOKUP_BUSINESS_TOOL_NAME, toolId);
 }

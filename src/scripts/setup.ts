@@ -10,6 +10,7 @@ import { createElevenLabsClient } from "../elevenlabs/client.ts";
 import {
   ensureCreateTaskTool,
   ensureGetWeatherTool,
+  ensureLookupBusinessTool,
   ensureSubmitTaskResultTool,
 } from "../elevenlabs/tools.ts";
 
@@ -25,23 +26,28 @@ const submitResultToolId = await ensureSubmitTaskResultTool(
   config.elevenLabsSubmitTaskResultToolId,
 );
 const createTaskToolId = await ensureCreateTaskTool(serverUrl, config.elevenLabsCreateTaskToolId);
+const lookupBusinessToolId = await ensureLookupBusinessTool(
+  serverUrl,
+  config.elevenLabsLookupBusinessToolId,
+);
 
 console.log(`Weather tool: ${weatherToolId}`);
 console.log(`Submit task result tool: ${submitResultToolId}`);
 console.log(`Create task tool: ${createTaskToolId}`);
+console.log(`Lookup business tool: ${lookupBusinessToolId}`);
 
 // --- Inbound (Alfred) agent ---
 if (config.elevenLabsAgentId) {
   console.log(`\nPublishing inbound agent ${config.elevenLabsAgentId} to Main...`);
   await publishAgentUpdate(
     config.elevenLabsAgentId,
-    buildAlfredAgentRequest([weatherToolId, createTaskToolId], serverUrl),
+    buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
   );
   console.log(`Inbound agent published: ${config.elevenLabsAgentId}`);
 } else {
   console.log("\nCreating Alfred (inbound) agent on ElevenLabs...");
   const created = await client.conversationalAi.agents.create(
-    buildAlfredAgentRequest([weatherToolId, createTaskToolId], serverUrl),
+    buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
   );
   console.log(`Inbound agent created: ${created.agentId}`);
   console.log(`\nAdd to .env (do not commit):`);
@@ -72,4 +78,5 @@ console.log(`ELEVENLABS_OUTBOUND_AGENT_ID=${config.elevenLabsOutboundAgentId ?? 
 console.log(`ELEVENLABS_WEATHER_TOOL_ID=${weatherToolId}`);
 console.log(`ELEVENLABS_SUBMIT_TASK_RESULT_TOOL_ID=${submitResultToolId}`);
 console.log(`ELEVENLABS_CREATE_TASK_TOOL_ID=${createTaskToolId}`);
+console.log(`ELEVENLABS_LOOKUP_BUSINESS_TOOL_ID=${lookupBusinessToolId}`);
 console.log("\nNext: bun run sync:agent");
