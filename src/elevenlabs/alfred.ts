@@ -68,7 +68,7 @@ export function buildAlfredAgentRequest(toolIds: string[], serverUrl: string) {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
-    name: "Alfred",
+    name: "alfred-client",
     conversationConfig: buildAlfredConversationConfig(toolIds),
     platformSettings: {
       overrides: ALFRED_OVERRIDE_PERMISSIONS,

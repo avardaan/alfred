@@ -36,7 +36,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    bun run setup
    ```
 
-   Creates the Alfred agent, Alfred Outbound agent, and three webhook tools (`get_weather`, `create_task`, `submit_task_result`). Copy printed IDs into `.env`.
+   Creates the alfred-client agent, alfred-worker agent, and three webhook tools (`get_weather`, `create_task`, `submit_task_result`). Copy printed IDs into `.env`.
 
 4. **Import Twilio number** (if using your own number)
 
@@ -150,19 +150,19 @@ sudo -u postgres pg_dump alfred | gzip > alfred_$(date +%F).sql.gz
 - **Runtime:** Bun
 - **Language:** TypeScript (strict, ESM, `.ts` imports with extensions)
 - **Voice:** ElevenAgents — `@elevenlabs/elevenlabs-js`, configured in `src/elevenlabs/*`
-- **Persona:** `src/assistant/alfred.ts` (inbound prompt, greeting, voice ID); `src/assistant/alfred-outbound.ts` (outbound task agent prompt, greeting, voice ID)
+- **Persona:** `src/assistant/alfred.ts` (inbound prompt, greeting, voice ID); `src/assistant/alfred-outbound.ts` (alfred-worker prompt, greeting, voice ID)
 - **Database:** PostgreSQL + [Drizzle ORM](https://orm.drizzle.team) (postgres-js driver), schema in `src/db/schema.ts`
 
 ### Layout
 
 | Path | Role |
 |------|------|
-| `src/assistant/` | Persona text and voice IDs (inbound `alfred.ts`, outbound `alfred-outbound.ts`) |
+| `src/assistant/` | Persona text and voice IDs (alfred-client `alfred.ts`, alfred-worker `alfred-outbound.ts`) |
 | `src/elevenlabs/voice-stack.ts` | LLM, STT (ASR), TTS, turn-taking, call limits |
 | `src/elevenlabs/overrides.ts` | Security override permissions for the agent |
 | `src/elevenlabs/agent-sync.ts` | Publish agent updates to ElevenLabs Main branch |
 | `src/elevenlabs/alfred.ts` | Assembles inbound agent config for the API |
-| `src/elevenlabs/alfred-outbound.ts` | Assembles outbound agent config (longer turn timeout, `submit_task_result` tool) |
+| `src/elevenlabs/alfred-outbound.ts` | Assembles alfred-worker agent config (longer turn timeout, `submit_task_result` tool) |
 | `src/elevenlabs/outbound-call.ts` | Places outbound calls via the ElevenLabs Batch Calls API |
 | `src/elevenlabs/tools.ts` | Webhook tool definitions synced to ElevenLabs |
 | `src/tools/` | Tool implementations (weather, create_task, submit_task_result) |
@@ -180,7 +180,7 @@ Alfred can place outbound calls to third parties on the user's behalf. The flow:
 
 1. User asks Alfred (voice or WhatsApp) to call a business and ask their hours.
 2. The inbound agent calls the `create_task` tool → server creates a `tasks` row and places an outbound call via the ElevenLabs Batch Calls API (`src/elevenlabs/outbound-call.ts`).
-3. The **Alfred Outbound** agent (second ElevenLabs agent, `src/elevenlabs/alfred-outbound.ts`) answers, asks for hours, and calls the `submit_task_result` tool with the result.
+3. The **alfred-worker** agent (second ElevenLabs agent, `src/elevenlabs/alfred-outbound.ts`) answers, asks for hours, and calls the `submit_task_result` tool with the result.
 4. The server marks the task complete and places a notification call back to the user with the result.
 
 A 5-minute in-process timeout (`COMPLETION_TIMEOUT_MS` in `src/tools/create-task.ts`) catches calls that end without `submit_task_result` — it polls the conversation status and marks the task as failed + notifies the user.

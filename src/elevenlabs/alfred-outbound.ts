@@ -47,7 +47,7 @@ export function buildAlfredOutboundConversationConfig(
 
 export function buildAlfredOutboundAgentRequest(submitResultToolId: string) {
   return {
-    name: "Alfred Outbound",
+    name: "alfred-worker",
     conversationConfig: buildAlfredOutboundConversationConfig(submitResultToolId),
     platformSettings: {
       overrides: ALFRED_OVERRIDE_PERMISSIONS,
