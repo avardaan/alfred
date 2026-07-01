@@ -19,40 +19,9 @@ import {
 type CreateTaskBody = {
   phone?: string;
   entity_name?: string;
-  conversation_id?: string;
-  user_id?: string;
 };
 
 const COMPLETION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Resolve the user ID for a tool webhook call.
- * ElevenLabs tool webhooks don't include user_id directly, but they do send
- * conversation_id. We use that to fetch the conversation metadata, which
- * contains the userId set by the init webhook.
- */
-async function resolveUserId(
-  body: CreateTaskBody,
-): Promise<{ userId: string | undefined; conversationId: string | undefined }> {
-  // If ElevenLabs ever starts sending user_id directly, use it
-  if (body.user_id) {
-    return { userId: body.user_id, conversationId: body.conversation_id };
-  }
-
-  const conversationId = body.conversation_id;
-  if (!conversationId) {
-    return { userId: undefined, conversationId: undefined };
-  }
-
-  try {
-    const client = createElevenLabsClient();
-    const conv = await client.conversationalAi.conversations.get(conversationId);
-    return { userId: conv.userId ?? undefined, conversationId };
-  } catch (error) {
-    console.error(`[tools/create_task] failed to look up conversation ${conversationId}:`, error);
-    return { userId: undefined, conversationId };
-  }
-}
 
 export async function handleCreateTaskTool(req: Request): Promise<Response> {
   let body: CreateTaskBody;
@@ -63,13 +32,12 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  console.log(`[tools/create_task] raw body keys: ${Object.keys(body).join(", ")}`);
-
   const phone = body.phone?.trim();
   const entityName = body.entity_name?.trim();
+  const userId = req.headers.get("x-user-id") ?? undefined;
 
   console.log(
-    `[tools/create_task] phone=${phone ?? "(none)"} entity=${entityName} conv=${body.conversation_id ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} entity=${entityName} user=${userId ?? "none"}`,
   );
 
   if (!phone || !entityName) {
@@ -77,10 +45,6 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
       result: "Error: missing phone or entity_name. Use lookup_business first to get the phone number.",
     });
   }
-
-  const { userId } = await resolveUserId(body);
-
-  console.log(`[tools/create_task] resolved userId=${userId ?? "none"}`);
 
   if (!userId) {
     return Response.json({

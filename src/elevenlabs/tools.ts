@@ -85,6 +85,9 @@ export function buildCreateTaskToolConfig(
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
       method: "POST",
+      requestHeaders: {
+        "X-User-Id": { variableName: "system__user_id" },
+      },
       requestBodySchema: {
         type: "object",
         required: ["phone", "entity_name"],
@@ -116,6 +119,9 @@ export function buildLookupBusinessToolConfig(
     apiSchema: {
       url: `${baseUrl}/tools/lookup_business`,
       method: "POST",
+      requestHeaders: {
+        "X-User-Id": { variableName: "system__user_id" },
+      },
       requestBodySchema: {
         type: "object",
         required: ["business_name"],

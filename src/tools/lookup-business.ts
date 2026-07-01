@@ -1,14 +1,11 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { users } from "../db/schema.ts";
-import { createElevenLabsClient } from "../elevenlabs/client.ts";
 import { findBusinessPhone } from "./places.ts";
 
 type LookupBusinessBody = {
   business_name?: string;
   location?: string;
-  conversation_id?: string;
-  user_id?: string;
 };
 
 export async function handleLookupBusinessTool(req: Request): Promise<Response> {
@@ -22,27 +19,16 @@ export async function handleLookupBusinessTool(req: Request): Promise<Response> 
 
   const businessName = body.business_name?.trim();
   const location = body.location?.trim();
+  const userId = req.headers.get("x-user-id") ?? undefined;
 
   console.log(
-    `[tools/lookup_business] business=${businessName} loc=${location ?? "(none)"} conv=${body.conversation_id ?? "none"}`,
+    `[tools/lookup_business] business=${businessName} loc=${location ?? "(none)"} user=${userId ?? "none"}`,
   );
 
   if (!businessName) {
     return Response.json({
       result: "Error: missing business_name.",
     });
-  }
-
-  // Resolve userId from conversation metadata (same as create_task)
-  let userId = body.user_id;
-  if (!userId && body.conversation_id) {
-    try {
-      const client = createElevenLabsClient();
-      const conv = await client.conversationalAi.conversations.get(body.conversation_id);
-      userId = conv.userId ?? undefined;
-    } catch (error) {
-      console.error(`[tools/lookup_business] failed to look up conversation:`, error);
-    }
   }
 
   // Resolve location: explicit > user's primaryLocation
