@@ -6,7 +6,10 @@ export const SUBMIT_TASK_RESULT_TOOL_NAME = "submit_task_result";
 export const CREATE_TASK_TOOL_NAME = "create_task";
 export const LOOKUP_BUSINESS_TOOL_NAME = "lookup_business";
 
-export function buildGetWeatherToolConfig(serverUrl: string): ElevenLabs.WebhookToolConfigInput {
+export function buildGetWeatherToolConfig(
+  serverUrl: string,
+  webhookSecretId: string,
+): ElevenLabs.WebhookToolConfigInput {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
@@ -17,6 +20,9 @@ export function buildGetWeatherToolConfig(serverUrl: string): ElevenLabs.Webhook
     apiSchema: {
       url: `${baseUrl}/tools/get_weather`,
       method: "POST",
+      requestHeaders: {
+        "X-Webhook-Secret": { secretId: webhookSecretId },
+      },
       requestBodySchema: {
         type: "object",
         required: ["location"],
@@ -39,32 +45,36 @@ export function buildGetWeatherToolConfig(serverUrl: string): ElevenLabs.Webhook
 
 export function buildSubmitTaskResultToolConfig(
   serverUrl: string,
+  webhookSecretId: string,
 ): ElevenLabs.WebhookToolConfigInput {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
     name: SUBMIT_TASK_RESULT_TOOL_NAME,
     description:
-      "Submit the result of an outbound task. Call this with the business hours once obtained, or with success=false if you could not reach anyone.",
+      "Submit the result of an outbound task. Always call this before ending the call — describe what happened in the result field, with success=true if the task was completed or success=false if it failed.",
     responseTimeoutSecs: 15,
     apiSchema: {
       url: `${baseUrl}/tools/submit_task_result`,
       method: "POST",
+      requestHeaders: {
+        "X-Webhook-Secret": { secretId: webhookSecretId },
+      },
       requestBodySchema: {
         type: "object",
-        required: ["task_id", "success"],
+        required: ["task_id", "success", "result"],
         properties: {
           task_id: {
             type: "string",
             description: "The task ID provided as a dynamic variable.",
           },
-          hours: {
+          result: {
             type: "string",
-            description: "The business hours as a plain text summary.",
+            description: "A summary of the outcome of the call. Always provide this — describe what happened, what was said, and any response received. Even for simple message deliveries, summarize the outcome.",
           },
           success: {
             type: "boolean",
-            description: "Whether the call was successful in getting the hours.",
+            description: "Whether the task was completed successfully.",
           },
         },
       },
@@ -74,23 +84,25 @@ export function buildSubmitTaskResultToolConfig(
 
 export function buildCreateTaskToolConfig(
   serverUrl: string,
+  webhookSecretId: string,
 ): ElevenLabs.WebhookToolConfigInput {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
     name: CREATE_TASK_TOOL_NAME,
     description:
-      "Create a task for Alfred to place an outbound call. Requires a phone number and an entity name (a label for who is being called). Alfred will call and report back. Use lookup_business first if you need to find a business phone number.",
+      "Create a task for Alfred to place an outbound call. Requires a phone number, an entity name (a label for who is being called), and an instruction (what Alfred should say or ask on the call). Alfred will call, follow the instruction, and report back. Use lookup_business first if you need to find a business phone number.",
     responseTimeoutSecs: 20,
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
       method: "POST",
       requestHeaders: {
         "X-User-Id": { variableName: "system__user_id" },
+        "X-Webhook-Secret": { secretId: webhookSecretId },
       },
       requestBodySchema: {
         type: "object",
-        required: ["phone", "entity_name"],
+        required: ["phone", "entity_name", "instruction"],
         properties: {
           phone: {
             type: "string",
@@ -100,6 +112,10 @@ export function buildCreateTaskToolConfig(
             type: "string",
             description: "A label for who is being called — a business name or a person's name.",
           },
+          instruction: {
+            type: "string",
+            description: "What Alfred should say or ask on the call, e.g. 'Could you tell me your business hours?' or 'Tell Sarah to have a good day.'",
+          },
         },
       },
     },
@@ -108,6 +124,7 @@ export function buildCreateTaskToolConfig(
 
 export function buildLookupBusinessToolConfig(
   serverUrl: string,
+  webhookSecretId: string,
 ): ElevenLabs.WebhookToolConfigInput {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
@@ -121,6 +138,7 @@ export function buildLookupBusinessToolConfig(
       method: "POST",
       requestHeaders: {
         "X-User-Id": { variableName: "system__user_id" },
+        "X-Webhook-Secret": { secretId: webhookSecretId },
       },
       requestBodySchema: {
         type: "object",
@@ -170,37 +188,50 @@ async function ensureWebhookTool(
   return created.id;
 }
 
-export async function ensureGetWeatherTool(serverUrl: string, toolId?: string): Promise<string> {
+export async function ensureGetWeatherTool(
+  serverUrl: string,
+  webhookSecretId: string,
+  toolId?: string,
+): Promise<string> {
   const toolConfig: ElevenLabs.ToolRequestModelToolConfig = {
     type: "webhook",
-    ...buildGetWeatherToolConfig(serverUrl),
+    ...buildGetWeatherToolConfig(serverUrl, webhookSecretId),
   };
   return ensureWebhookTool(toolConfig, GET_WEATHER_TOOL_NAME, toolId);
 }
 
 export async function ensureSubmitTaskResultTool(
   serverUrl: string,
+  webhookSecretId: string,
   toolId?: string,
 ): Promise<string> {
   const toolConfig: ElevenLabs.ToolRequestModelToolConfig = {
     type: "webhook",
-    ...buildSubmitTaskResultToolConfig(serverUrl),
+    ...buildSubmitTaskResultToolConfig(serverUrl, webhookSecretId),
   };
   return ensureWebhookTool(toolConfig, SUBMIT_TASK_RESULT_TOOL_NAME, toolId);
 }
 
-export async function ensureCreateTaskTool(serverUrl: string, toolId?: string): Promise<string> {
+export async function ensureCreateTaskTool(
+  serverUrl: string,
+  webhookSecretId: string,
+  toolId?: string,
+): Promise<string> {
   const toolConfig: ElevenLabs.ToolRequestModelToolConfig = {
     type: "webhook",
-    ...buildCreateTaskToolConfig(serverUrl),
+    ...buildCreateTaskToolConfig(serverUrl, webhookSecretId),
   };
   return ensureWebhookTool(toolConfig, CREATE_TASK_TOOL_NAME, toolId);
 }
 
-export async function ensureLookupBusinessTool(serverUrl: string, toolId?: string): Promise<string> {
+export async function ensureLookupBusinessTool(
+  serverUrl: string,
+  webhookSecretId: string,
+  toolId?: string,
+): Promise<string> {
   const toolConfig: ElevenLabs.ToolRequestModelToolConfig = {
     type: "webhook",
-    ...buildLookupBusinessToolConfig(serverUrl),
+    ...buildLookupBusinessToolConfig(serverUrl, webhookSecretId),
   };
   return ensureWebhookTool(toolConfig, LOOKUP_BUSINESS_TOOL_NAME, toolId);
 }

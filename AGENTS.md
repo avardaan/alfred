@@ -23,7 +23,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    cp .env.example .env
    ```
 
-   Fill in at least `DATABASE_URL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_SERVER_URL`, and `GOOGLE_PLACES_API_KEY`. See `.env.example` for what each variable does.
+   Fill in at least `DATABASE_URL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_SERVER_URL`, `GOOGLE_PLACES_API_KEY`, and `WEBHOOK_SECRET` (generate with `openssl rand -hex 32`). See `.env.example` for what each variable does.
 
    Apply database migrations:
 
@@ -37,7 +37,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    bun run setup
    ```
 
-   Creates the alfred-client agent, alfred-worker agent, and four webhook tools (`get_weather`, `lookup_business`, `create_task`, `submit_task_result`). Copy printed IDs into `.env`.
+   Creates the alfred-client agent, alfred-worker agent, four webhook tools (`get_weather`, `lookup_business`, `create_task`, `submit_task_result`), and the `alfred_webhook_secret` workspace secret (from `WEBHOOK_SECRET`). Copy printed IDs into `.env`.
 
 4. **Import Twilio number** (if using your own number)
 
@@ -55,7 +55,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
    bun run sync:agent
    ```
 
-   Updates init webhook, all webhook tools, and both agent configs (inbound + outbound) from `ELEVENLABS_SERVER_URL`.
+   Updates the workspace secret, init webhook, all webhook tools, and both agent configs (inbound + outbound) from `ELEVENLABS_SERVER_URL`.
 
 6. **Start the server**
 
@@ -86,7 +86,7 @@ After changing persona or voice stack (`src/assistant/*`, `src/elevenlabs/*`) or
 bun run sync:agent
 ```
 
-`sync:agent` commits a new version on Main (no lingering draft) and updates init webhook, all webhook tools, and both agent configs (inbound + outbound) from `ELEVENLABS_SERVER_URL`.
+`sync:agent` commits a new version on Main (no lingering draft) and updates the workspace secret, init webhook, all webhook tools, and both agent configs (inbound + outbound) from `ELEVENLABS_SERVER_URL`.
 
 Inbound calls and SMS personalize via `/webhook/elevenlabs/init` when ElevenLabs sends `caller_id` (configured on the agent by `sync:agent`). Outbound `test:call` passes the same lookup via `conversationInitiationClientData`.
 
@@ -106,7 +106,7 @@ Alfred runs on a Hetzner VPS behind [Caddy](https://caddyserver.com), which term
 
 **Host:** Hetzner VPS `62.238.47.91` (SSH alias `alfred`, user `vardaan`). Public URL `https://62-238-47-91.sslip.io` — the [sslip.io](https://sslip.io) hostname maps to the IP so Let's Encrypt can issue a cert for an otherwise bare-IP host. The Hetzner firewall allows ports 80 and 443.
 
-The running server needs `DATABASE_URL` (Postgres); tool and webhook routes are otherwise unauthenticated. Keep API keys in local `.env` for scripts only.
+The running server needs `DATABASE_URL` (Postgres) and `WEBHOOK_SECRET`. All tool and init webhook routes require a matching `X-Webhook-Secret` header (hard-fail 401 if missing/mismatched, including when `WEBHOOK_SECRET` is unset). ElevenLabs injects the secret via a workspace secret referenced in each tool's and the init webhook's `requestHeaders`; `setup`/`sync:agent` provision it. `/health` stays open. Keep API keys in local `.env` for scripts only.
 
 ### Process (systemd)
 
@@ -168,6 +168,8 @@ sudo -u postgres pg_dump alfred | gzip > alfred_$(date +%F).sql.gz
 | `src/elevenlabs/alfred-outbound.ts` | Assembles alfred-worker agent config (longer turn timeout, `submit_task_result` tool) |
 | `src/elevenlabs/outbound-call.ts` | Places outbound + notification calls via the ElevenLabs Batch Calls API |
 | `src/elevenlabs/tools.ts` | Webhook tool definitions + ensure-or-create helpers, synced to ElevenLabs |
+| `src/elevenlabs/secrets.ts` | Ensures the `alfred_webhook_secret` workspace secret exists on ElevenLabs (create-or-update) |
+| `src/webhook/auth.ts` | `verifyWebhookSecret` — timing-safe `X-Webhook-Secret` header check (hard-fail) |
 | `src/tools/` | Tool implementations: `weather`, `places`, `lookup-business`, `create-task`, `submit-task-result` |
 | `src/routes/` | HTTP handlers (`/webhook/elevenlabs/init`, `/tools/get_weather`) |
 | `src/db/` | Drizzle schema, client, user lookup (`users.ts`), task helpers (`tasks.ts`) |
@@ -212,7 +214,9 @@ The `scheduled_for` column on `tasks` exists for future scheduled tasks but is u
 - Run `bun run db:generate` then `bun run db:migrate` after changing `src/db/schema.ts`.
 - `findUserByPhone` is async (queries Postgres); consumers must `await` it.
 - Task helpers (`createTask`, `updateTaskStatus`, `createAttempt`, etc.) are in `src/db/tasks.ts` and are async.
-- **Tool webhooks receive `conversation_id` but NOT `user_id`.** Resolve the user by fetching the conversation via `client.conversationalAi.conversations.get(conversationId)` and reading `conv.userId` (set by the init webhook). See `resolveUserId` in `src/tools/create-task.ts`.
+- **Tool webhooks receive `conversation_id` but NOT `user_id` in the body.** `create_task` and `lookup_business` resolve the user from the `X-User-Id` header, which ElevenLabs injects from `system__user_id` via `requestHeaders`.
+- **All tool + init webhook endpoints require a matching `X-Webhook-Secret` header** (`src/webhook/auth.ts`). The secret value is stored as the `alfred_webhook_secret` workspace secret on ElevenLabs and injected into `requestHeaders` via `{ secretId }`. `setup`/`sync:agent` provision it from `WEBHOOK_SECRET`. Hard-fail: no escape hatch when unset.
+- **HMAC `constructEvent` / `elevenlabs-signature` is for workspace (post-call) webhooks only**, not tool or init webhooks. Alfred has no post-call webhook today. Tool/init webhooks authenticate via the shared-secret header above.
 - Phone numbers are normalized to E.164 via `normalizePhone` in `src/db/users.ts` (libphonenumber-js).
 - The outbound agent has its own persona in `src/assistant/alfred-outbound.ts` and config in `src/elevenlabs/alfred-outbound.ts`.
 

@@ -8,15 +8,20 @@ import {
   updateTaskStatus,
 } from "../db/tasks.ts";
 import { placeNotificationCall } from "../elevenlabs/outbound-call.ts";
+import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type SubmitTaskResultBody = {
   task_id?: string;
-  hours?: string;
+  result?: string;
   success?: boolean;
   conversation_id?: string;
 };
 
 export async function handleSubmitTaskResultTool(req: Request): Promise<Response> {
+  if (!verifyWebhookSecret(req)) {
+    return unauthorizedResponse();
+  }
+
   let body: SubmitTaskResultBody;
 
   try {
@@ -26,12 +31,12 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
   }
 
   const taskId = body.task_id;
-  const hours = typeof body.hours === "string" ? body.hours : "";
+  const result = typeof body.result === "string" && body.result.trim() ? body.result : "No result provided.";
   const success = body.success !== false;
   const conversationId = body.conversation_id;
 
   console.log(
-    `[tools/submit_task_result] task=${taskId} success=${success} hours=${hours.slice(0, 80)} conv=${conversationId ?? "none"}`,
+    `[tools/submit_task_result] task=${taskId} success=${success} result=${result.slice(0, 80)} conv=${conversationId ?? "none"}`,
   );
 
   if (!taskId) {
@@ -45,7 +50,7 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
   }
 
   await updateTaskStatus(taskId, success ? "completed" : "failed", {
-    outcome: { hours },
+    outcome: { result },
   });
 
   if (conversationId) {
@@ -59,10 +64,10 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
   }
 
   // Notify the user via voice callback
-  const details = task.details as { phone: string; entityName: string };
+  const details = task.details as { phone: string; entityName: string; instruction: string };
   const message = success
-    ? `Hi, I called ${details.entityName}. Their hours are: ${hours}.`
-    : `Hi, I tried calling ${details.entityName} but couldn't get their hours. Sorry about that.`;
+    ? `Hi, I called ${details.entityName}. Here's what happened: ${result}.`
+    : `Hi, I tried calling ${details.entityName} but couldn't complete the task. Sorry about that.`;
 
   // Find the user's phone number to call back
   const userPhone = await getUserPhoneForTask(task.userId);

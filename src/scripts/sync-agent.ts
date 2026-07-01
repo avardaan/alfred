@@ -8,6 +8,8 @@ import {
   ensureLookupBusinessTool,
   ensureSubmitTaskResultTool,
 } from "../elevenlabs/tools.ts";
+import { ensureWebhookSecret } from "../elevenlabs/secrets.ts";
+import { ensurePostCallWebhook } from "../elevenlabs/post-call-webhook.ts";
 
 requireElevenLabsApiKey();
 const serverUrl = requireElevenLabsServerUrl();
@@ -22,22 +24,44 @@ if (!outboundAgentId) {
   throw new Error("Missing ELEVENLABS_OUTBOUND_AGENT_ID. Run `bun run setup` first.");
 }
 
-console.log("Ensuring tools...");
-const weatherToolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
+console.log("Ensuring webhook secret...");
+const webhookSecretId = await ensureWebhookSecret();
+console.log(`Webhook secret: ${webhookSecretId}`);
+
+console.log("\nEnsuring post-call webhook...");
+const postCallWebhook = await ensurePostCallWebhook();
+console.log(`Post-call webhook: ${postCallWebhook.webhookId}`);
+
+console.log("\nEnsuring tools...");
+const weatherToolId = await ensureGetWeatherTool(
+  serverUrl,
+  webhookSecretId,
+  config.elevenLabsWeatherToolId,
+);
 const submitResultToolId = await ensureSubmitTaskResultTool(
   serverUrl,
+  webhookSecretId,
   config.elevenLabsSubmitTaskResultToolId,
 );
-const createTaskToolId = await ensureCreateTaskTool(serverUrl, config.elevenLabsCreateTaskToolId);
+const createTaskToolId = await ensureCreateTaskTool(
+  serverUrl,
+  webhookSecretId,
+  config.elevenLabsCreateTaskToolId,
+);
 const lookupBusinessToolId = await ensureLookupBusinessTool(
   serverUrl,
+  webhookSecretId,
   config.elevenLabsLookupBusinessToolId,
 );
 
 console.log(`\nPublishing inbound agent ${agentId} to Main...`);
 await publishAgentUpdate(
   agentId,
-  buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
+  buildAlfredAgentRequest(
+    [weatherToolId, createTaskToolId, lookupBusinessToolId],
+    serverUrl,
+    webhookSecretId,
+  ),
 );
 
 console.log(`Publishing outbound agent ${outboundAgentId} to Main...`);
@@ -48,3 +72,5 @@ console.log(`Weather tool: ${weatherToolId}`);
 console.log(`Submit task result tool: ${submitResultToolId}`);
 console.log(`Create task tool: ${createTaskToolId}`);
 console.log(`Lookup business tool: ${lookupBusinessToolId}`);
+console.log(`Webhook secret: ${webhookSecretId}`);
+console.log(`Post-call webhook: ${postCallWebhook.webhookId}`);

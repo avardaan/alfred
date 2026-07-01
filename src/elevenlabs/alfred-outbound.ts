@@ -36,6 +36,11 @@ export function buildAlfredOutboundConversationConfig(
     agent: {
       firstMessage: ALFRED_OUTBOUND_FIRST_MESSAGE,
       language: "en",
+      dynamicVariables: {
+        dynamicVariablePlaceholders: {
+          task_instruction: "Could you tell me your business hours?",
+        },
+      },
       prompt: {
         prompt: ALFRED_OUTBOUND_SYSTEM_PROMPT,
         llm: ALFRED_LLM,

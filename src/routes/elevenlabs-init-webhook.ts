@@ -3,6 +3,7 @@ import {
   findUserByPhone,
   greetingForUser,
 } from "../db/users.ts";
+import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type ElevenLabsInitWebhookBody = {
   caller_id?: string;
@@ -13,6 +14,10 @@ type ElevenLabsInitWebhookBody = {
 };
 
 export async function handleElevenLabsInitWebhook(req: Request): Promise<Response> {
+  if (!verifyWebhookSecret(req)) {
+    return unauthorizedResponse();
+  }
+
   let body: ElevenLabsInitWebhookBody;
 
   try {

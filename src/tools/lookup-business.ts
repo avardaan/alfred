@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { users } from "../db/schema.ts";
 import { findBusinessPhone } from "./places.ts";
+import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type LookupBusinessBody = {
   business_name?: string;
@@ -9,6 +10,10 @@ type LookupBusinessBody = {
 };
 
 export async function handleLookupBusinessTool(req: Request): Promise<Response> {
+  if (!verifyWebhookSecret(req)) {
+    return unauthorizedResponse();
+  }
+
   let body: LookupBusinessBody;
 
   try {

@@ -28,6 +28,10 @@ export const config = {
   twilioAccountSid: optional("TWILIO_ACCOUNT_SID"),
   twilioAuthToken: optional("TWILIO_AUTH_TOKEN"),
   twilioPhoneNumber: optional("TWILIO_PHONE_NUMBER"),
+  webhookSecret: optional("WEBHOOK_SECRET"),
+  elevenLabsWebhookSecretId: optional("ELEVENLABS_WEBHOOK_SECRET_ID"),
+  postCallWebhookId: optional("ELEVENLABS_POST_CALL_WEBHOOK_ID"),
+  postCallWebhookSecret: optional("ELEVENLABS_POST_CALL_WEBHOOK_SECRET"),
 };
 
 export function requireElevenLabsApiKey(): string {
@@ -40,4 +44,8 @@ export function requireElevenLabsServerUrl(): string {
 
 export function requireDatabaseUrl(): string {
   return required("DATABASE_URL");
+}
+
+export function requireWebhookSecret(): string {
+  return required("WEBHOOK_SECRET");
 }

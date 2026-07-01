@@ -13,21 +13,41 @@ import {
   ensureLookupBusinessTool,
   ensureSubmitTaskResultTool,
 } from "../elevenlabs/tools.ts";
+import { ensureWebhookSecret } from "../elevenlabs/secrets.ts";
+import { ensurePostCallWebhook } from "../elevenlabs/post-call-webhook.ts";
 
 requireElevenLabsApiKey();
 const serverUrl = requireElevenLabsServerUrl();
 
 const client = createElevenLabsClient();
 
-console.log(`Ensuring tools → ${serverUrl}`);
-const weatherToolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
+console.log("Ensuring webhook secret...");
+const webhookSecretId = await ensureWebhookSecret();
+console.log(`Webhook secret: ${webhookSecretId}`);
+
+console.log("\nEnsuring post-call webhook...");
+const postCallWebhook = await ensurePostCallWebhook();
+console.log(`Post-call webhook ID: ${postCallWebhook.webhookId}`);
+
+console.log(`\nEnsuring tools → ${serverUrl}`);
+const weatherToolId = await ensureGetWeatherTool(
+  serverUrl,
+  webhookSecretId,
+  config.elevenLabsWeatherToolId,
+);
 const submitResultToolId = await ensureSubmitTaskResultTool(
   serverUrl,
+  webhookSecretId,
   config.elevenLabsSubmitTaskResultToolId,
 );
-const createTaskToolId = await ensureCreateTaskTool(serverUrl, config.elevenLabsCreateTaskToolId);
+const createTaskToolId = await ensureCreateTaskTool(
+  serverUrl,
+  webhookSecretId,
+  config.elevenLabsCreateTaskToolId,
+);
 const lookupBusinessToolId = await ensureLookupBusinessTool(
   serverUrl,
+  webhookSecretId,
   config.elevenLabsLookupBusinessToolId,
 );
 
@@ -41,13 +61,21 @@ if (config.elevenLabsAgentId) {
   console.log(`\nPublishing inbound agent ${config.elevenLabsAgentId} to Main...`);
   await publishAgentUpdate(
     config.elevenLabsAgentId,
-    buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
+    buildAlfredAgentRequest(
+      [weatherToolId, createTaskToolId, lookupBusinessToolId],
+      serverUrl,
+      webhookSecretId,
+    ),
   );
   console.log(`Inbound agent published: ${config.elevenLabsAgentId}`);
 } else {
   console.log("\nCreating Alfred (inbound) agent on ElevenLabs...");
   const created = await client.conversationalAi.agents.create(
-    buildAlfredAgentRequest([weatherToolId, createTaskToolId, lookupBusinessToolId], serverUrl),
+    buildAlfredAgentRequest(
+      [weatherToolId, createTaskToolId, lookupBusinessToolId],
+      serverUrl,
+      webhookSecretId,
+    ),
   );
   console.log(`Inbound agent created: ${created.agentId}`);
   console.log(`\nAdd to .env (do not commit):`);
@@ -79,4 +107,9 @@ console.log(`ELEVENLABS_WEATHER_TOOL_ID=${weatherToolId}`);
 console.log(`ELEVENLABS_SUBMIT_TASK_RESULT_TOOL_ID=${submitResultToolId}`);
 console.log(`ELEVENLABS_CREATE_TASK_TOOL_ID=${createTaskToolId}`);
 console.log(`ELEVENLABS_LOOKUP_BUSINESS_TOOL_ID=${lookupBusinessToolId}`);
+console.log(`ELEVENLABS_WEBHOOK_SECRET_ID=${webhookSecretId}`);
+console.log(`ELEVENLABS_POST_CALL_WEBHOOK_ID=${postCallWebhook.webhookId}`);
+if (postCallWebhook.webhookSecret) {
+  console.log(`ELEVENLABS_POST_CALL_WEBHOOK_SECRET=${postCallWebhook.webhookSecret}`);
+}
 console.log("\nNext: bun run sync:agent");

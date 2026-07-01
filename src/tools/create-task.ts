@@ -8,6 +8,7 @@ import {
   getTask,
   updateAttempt,
   updateTaskStatus,
+  type TaskDetails,
 } from "../db/tasks.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
 import {
@@ -15,15 +16,23 @@ import {
   placeNotificationCall,
   placeOutboundCall,
 } from "../elevenlabs/outbound-call.ts";
+import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type CreateTaskBody = {
   phone?: string;
   entity_name?: string;
+  instruction?: string;
 };
 
-const COMPLETION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const RETRY_DELAY_MS = 75 * 1000; // 60s ringing timeout + 15s buffer before checking
+const COMPLETION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min final safety net for any stuck state
+const MAX_ATTEMPTS = 2; // initial call + 1 retry
 
 export async function handleCreateTaskTool(req: Request): Promise<Response> {
+  if (!verifyWebhookSecret(req)) {
+    return unauthorizedResponse();
+  }
+
   let body: CreateTaskBody;
 
   try {
@@ -34,15 +43,16 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const phone = body.phone?.trim();
   const entityName = body.entity_name?.trim();
+  const instruction = body.instruction?.trim();
   const userId = req.headers.get("x-user-id") ?? undefined;
 
   console.log(
-    `[tools/create_task] phone=${phone ?? "(none)"} entity=${entityName} user=${userId ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} entity=${entityName} instruction=${instruction ?? "(none)"} user=${userId ?? "none"}`,
   );
 
-  if (!phone || !entityName) {
+  if (!phone || !entityName || !instruction) {
     return Response.json({
-      result: "Error: missing phone or entity_name. Use lookup_business first to get the phone number.",
+      result: "Error: missing phone, entity_name, or instruction.",
     });
   }
 
@@ -55,9 +65,10 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   const resolvedPhone = normalizePhone(phone);
 
   // Create the task row
-  const task = await createTask(userId, "ask_hours", {
+  const task = await createTask(userId, "outbound_call", {
     phone: resolvedPhone,
     entityName,
+    instruction,
   });
 
   // Place the outbound call
@@ -66,12 +77,13 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     const result = await placeOutboundCall({
       phoneNumber: resolvedPhone,
       taskId: task.id,
+      instruction,
     });
     batchCallId = result.batchCallId;
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
     console.error(`[tools/create_task] outbound call failed:`, detail);
-    await updateTaskStatus(task.id, "failed", { outcome: { hours: "" } });
+    await updateTaskStatus(task.id, "failed", { outcome: { result: "" } });
     return Response.json({
       result: `I tried to call ${entityName} but something went wrong: ${detail}`,
     });
@@ -82,65 +94,146 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   await updateAttempt(attempt.id, "in_progress");
   await updateTaskStatus(task.id, "in_progress");
 
-  // Set a completion timeout fallback
-  setTimeout(() => checkTaskTimeout(task.id, attempt.id, batchCallId), COMPLETION_TIMEOUT_MS);
+  // Schedule retry check (if no answer after ringing timeout, retry once)
+  setTimeout(
+    () => checkAndRetry(task.id, attempt.id, batchCallId, 1),
+    RETRY_DELAY_MS,
+  );
+
+  // Schedule final timeout (safety net for any stuck state)
+  setTimeout(() => checkFinalTimeout(task.id), COMPLETION_TIMEOUT_MS);
 
   return Response.json({
-    result: `I'll call ${entityName} now and report back with their hours.`,
+    result: `I'll call ${entityName} now and report back.`,
   });
 }
 
 /**
- * Fallback: if submit_task_result hasn't arrived after 5 minutes, check if the
- * conversation has ended. If so, mark the task as failed and notify the user.
+ * Check if the call was answered. If not (status "initiated" or "failed"),
+ * retry once. If max attempts reached, mark task as failed and notify user.
  */
-async function checkTaskTimeout(
+async function checkAndRetry(
   taskId: string,
   attemptId: string,
   batchCallId: string,
+  attemptNumber: number,
 ): Promise<void> {
   const task = await getTask(taskId);
   if (!task || task.status === "completed" || task.status === "failed") {
-    return; // Already resolved
+    return;
   }
 
-  console.log(`[tools/create_task] timeout check for task ${taskId} (batch ${batchCallId})`);
+  const details = task.details as TaskDetails;
 
-  // Try to get conversation status from the batch call
   try {
     const client = createElevenLabsClient();
     const batchCall = await client.conversationalAi.batchCalls.get(batchCallId);
-
     const recipient = batchCall.recipients[0];
-    if (recipient?.conversationId) {
-      const status = await getConversationStatus(recipient.conversationId);
-      console.log(`[tools/create_task] conversation ${recipient.conversationId} status: ${status}`);
 
-      if (status === "done" || status === "failed") {
-        await updateAttempt(attemptId, "failed", {
-          elevenlabsConversationId: recipient.conversationId,
-          failureReason: "Conversation ended without submit_task_result",
-        });
-        await updateTaskStatus(taskId, "failed", { outcome: { hours: "" } });
-
-        // Notify the user
-        const details = task.details as { phone: string; entityName: string };
-        const userRows = await db.select().from(users).where(eq(users.id, task.userId)).limit(1);
-        const userPhone = userRows[0]?.phoneNumbers[0];
-
-        if (userPhone) {
-          try {
-            await placeNotificationCall({
-              phoneNumber: userPhone,
-              message: `Hi, I called ${details.entityName} but couldn't get their hours. Sorry about that.`,
-            });
-          } catch (error) {
-            console.error(`[tools/create_task] timeout notification failed:`, error);
-          }
-        }
-      }
+    if (!recipient?.conversationId) {
+      console.log(`[tools/create_task] attempt ${attemptNumber}: no conversationId`);
+      await handleNoAnswer(taskId, task.userId, details, attemptNumber);
+      return;
     }
+
+    const status = await getConversationStatus(recipient.conversationId);
+    console.log(
+      `[tools/create_task] attempt ${attemptNumber} conv ${recipient.conversationId} status: ${status}`,
+    );
+
+    // Call was answered — let the post-call webhook handle completion
+    if (status === "processing" || status === "done") {
+      return;
+    }
+
+    // No answer (initiated/failed/undefined) — mark attempt failed, retry or fail task
+    await updateAttempt(attemptId, "failed", {
+      elevenlabsConversationId: recipient.conversationId,
+      failureReason: status === "initiated" ? "No answer" : `Call status: ${status ?? "unknown"}`,
+    });
+    await handleNoAnswer(taskId, task.userId, details, attemptNumber);
   } catch (error) {
-    console.error(`[tools/create_task] timeout check failed:`, error);
+    console.error(`[tools/create_task] retry check failed:`, error);
   }
+}
+
+/**
+ * Either retry the call or fail the task + notify, depending on attempt count.
+ */
+async function handleNoAnswer(
+  taskId: string,
+  userId: string,
+  details: TaskDetails,
+  attemptNumber: number,
+): Promise<void> {
+  if (attemptNumber < MAX_ATTEMPTS) {
+    console.log(`[tools/create_task] retrying task ${taskId} (attempt ${attemptNumber + 1})`);
+    try {
+      const result = await placeOutboundCall({
+        phoneNumber: details.phone,
+        taskId,
+        instruction: details.instruction,
+      });
+      const attempt = await createAttempt(taskId, {
+        elevenlabsBatchCallId: result.batchCallId,
+      });
+      await updateAttempt(attempt.id, "in_progress");
+
+      setTimeout(
+        () => checkAndRetry(taskId, attempt.id, result.batchCallId, attemptNumber + 1),
+        RETRY_DELAY_MS,
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[tools/create_task] retry call failed:`, detail);
+      await failTaskAndNotify(taskId, userId, `I tried calling ${details.entityName} but the retry failed.`);
+    }
+  } else {
+    await failTaskAndNotify(
+      taskId,
+      userId,
+      `I tried calling ${details.entityName} but no one answered after multiple attempts.`,
+    );
+  }
+}
+
+/**
+ * Mark a task as failed and notify the user with the given message.
+ */
+async function failTaskAndNotify(
+  taskId: string,
+  userId: string,
+  message: string,
+): Promise<void> {
+  await updateTaskStatus(taskId, "failed", { outcome: { result: message } });
+  console.log(`[tools/create_task] task ${taskId} marked failed: ${message}`);
+
+  const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const userPhone = userRows[0]?.phoneNumbers[0];
+  if (userPhone) {
+    try {
+      await placeNotificationCall({ phoneNumber: userPhone, message });
+    } catch (error) {
+      console.error(`[tools/create_task] notification failed:`, error);
+    }
+  }
+}
+
+/**
+ * Final safety net: if the task is still in_progress after COMPLETION_TIMEOUT_MS,
+ * mark it as failed and notify the user. Catches any stuck state.
+ */
+async function checkFinalTimeout(taskId: string): Promise<void> {
+  const task = await getTask(taskId);
+  if (!task || task.status === "completed" || task.status === "failed") {
+    return;
+  }
+
+  console.log(`[tools/create_task] final timeout for task ${taskId}`);
+  const details = task.details as TaskDetails;
+  await failTaskAndNotify(
+    taskId,
+    task.userId,
+    `I called ${details.entityName} but couldn't complete the task. Sorry about that.`,
+  );
 }

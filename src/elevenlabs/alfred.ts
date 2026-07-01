@@ -45,6 +45,7 @@ export function buildAlfredConversationConfig(toolIds: string[]): ElevenLabs.Con
       dynamicVariables: {
         dynamicVariablePlaceholders: {
           [ALFRED_CALLER_NAME_VARIABLE]: "there",
+          notification_message: "",
         },
       },
       prompt: {
@@ -58,13 +59,24 @@ export function buildAlfredConversationConfig(toolIds: string[]): ElevenLabs.Con
               systemToolType: "language_detection",
             },
           },
+          voicemailDetection: {
+            name: "voicemail_detection",
+            params: {
+              systemToolType: "voicemail_detection",
+              voicemailMessage: "{{notification_message}}",
+            },
+          },
         },
       },
     },
   };
 }
 
-export function buildAlfredAgentRequest(toolIds: string[], serverUrl: string) {
+export function buildAlfredAgentRequest(
+  toolIds: string[],
+  serverUrl: string,
+  webhookSecretId: string,
+) {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
@@ -75,7 +87,9 @@ export function buildAlfredAgentRequest(toolIds: string[], serverUrl: string) {
       workspaceOverrides: {
         conversationInitiationClientDataWebhook: {
           url: `${baseUrl}/webhook/elevenlabs/init`,
-          requestHeaders: {},
+          requestHeaders: {
+            "X-Webhook-Secret": { secretId: webhookSecretId },
+          },
         },
       },
     },

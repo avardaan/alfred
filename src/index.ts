@@ -4,6 +4,7 @@ import { handleGetWeatherTool } from "./routes/get-weather-tool.ts";
 import { handleCreateTaskTool } from "./tools/create-task.ts";
 import { handleLookupBusinessTool } from "./tools/lookup-business.ts";
 import { handleSubmitTaskResultTool } from "./tools/submit-task-result.ts";
+import { handlePostCallWebhook } from "./routes/post-call-webhook.ts";
 
 const server = Bun.serve({
   port: config.port,
@@ -16,6 +17,9 @@ const server = Bun.serve({
     "/health": () => Response.json({ status: "ok" }),
     "/webhook/elevenlabs/init": {
       POST: handleElevenLabsInitWebhook,
+    },
+    "/webhook/elevenlabs/post-call": {
+      POST: handlePostCallWebhook,
     },
     "/tools/get_weather": {
       POST: handleGetWeatherTool,

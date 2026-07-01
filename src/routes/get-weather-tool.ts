@@ -1,4 +1,5 @@
 import { runTool } from "../tools/index.ts";
+import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type ElevenLabsToolWebhookBody = {
   tool_call_id?: string;
@@ -27,6 +28,10 @@ function extractToolParameters(
 }
 
 export async function handleGetWeatherTool(req: Request): Promise<Response> {
+  if (!verifyWebhookSecret(req)) {
+    return unauthorizedResponse();
+  }
+
   let body: ElevenLabsToolWebhookBody;
 
   try {

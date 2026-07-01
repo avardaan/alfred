@@ -4,8 +4,8 @@ import { db } from "./client.ts";
 import { taskAttempts, tasks, type NewTask, type Task } from "./schema.ts";
 
 export type { Task } from "./schema.ts";
-export type TaskDetails = { phone: string; entityName: string };
-export type TaskOutcome = { hours: string };
+export type TaskDetails = { phone: string; entityName: string; instruction: string };
+export type TaskOutcome = { result: string };
 
 export async function createTask(
   userId: string,
