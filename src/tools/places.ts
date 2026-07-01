@@ -4,6 +4,7 @@ export type PlaceResult = {
   name: string;
   phoneNumber: string;
   address: string;
+  hours: string | null;
 };
 
 /**
@@ -28,7 +29,7 @@ export async function findBusinessPhone(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask":
-        "places.displayName,places.internationalPhoneNumber,places.formattedAddress",
+        "places.displayName,places.internationalPhoneNumber,places.formattedAddress,places.currentOpeningHours",
     },
     body: JSON.stringify({
       textQuery: query,
@@ -48,6 +49,9 @@ export async function findBusinessPhone(
       displayName?: { text?: string };
       internationalPhoneNumber?: string;
       formattedAddress?: string;
+      currentOpeningHours?: {
+        weekdayDescriptions?: string[];
+      };
     }>;
   };
 
@@ -57,12 +61,17 @@ export async function findBusinessPhone(
     return undefined;
   }
 
+  const hours = place.currentOpeningHours?.weekdayDescriptions?.length
+    ? place.currentOpeningHours.weekdayDescriptions.join("; ")
+    : null;
+
   const result: PlaceResult = {
     name: place.displayName?.text ?? query,
     phoneNumber: place.internationalPhoneNumber,
     address: place.formattedAddress ?? "",
+    hours,
   };
 
-  console.log(`[places] "${query}" → ${result.name} (${result.phoneNumber})`);
+  console.log(`[places] "${query}" → ${result.name} (${result.phoneNumber})${hours ? ` [hours available]` : ""}`);
   return result;
 }

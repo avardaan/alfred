@@ -63,7 +63,11 @@ export async function handleLookupBusinessTool(req: Request): Promise<Response> 
     });
   }
 
+  const hoursPart = place.hours
+    ? ` Hours: ${place.hours}.`
+    : " Hours not listed — call create_task to get them by phone.";
+
   return Response.json({
-    result: `Found: ${place.name} at ${place.address}. Phone: ${place.phoneNumber}. Read back the name and address to the user and ask if this is the right one before calling create_task.`,
+    result: `Found: ${place.name} at ${place.address}. Phone: ${place.phoneNumber}.${hoursPart}${place.hours ? " Read the hours to the user directly — no need to call the business." : " Read back the name and address and ask the user to confirm before calling create_task."}`,
   });
 }
