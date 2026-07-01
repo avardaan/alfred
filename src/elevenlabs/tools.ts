@@ -80,20 +80,20 @@ export function buildCreateTaskToolConfig(
   return {
     name: CREATE_TASK_TOOL_NAME,
     description:
-      "Create a task for Alfred to place an outbound call. Requires a phone number and a label for who is being called. Alfred will call and report back. Use lookup_business first if you need to find a business phone number.",
+      "Create a task for Alfred to place an outbound call. Requires a phone number and an entity name (a label for who is being called). Alfred will call and report back. Use lookup_business first if you need to find a business phone number.",
     responseTimeoutSecs: 20,
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
       method: "POST",
       requestBodySchema: {
         type: "object",
-        required: ["phone", "business_name"],
+        required: ["phone", "entity_name"],
         properties: {
           phone: {
             type: "string",
             description: "The phone number to call in E.164 format, e.g. +15105551234.",
           },
-          business_name: {
+          entity_name: {
             type: "string",
             description: "A label for who is being called — a business name or a person's name.",
           },

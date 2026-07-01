@@ -18,7 +18,7 @@ import {
 
 type CreateTaskBody = {
   phone?: string;
-  business_name?: string;
+  entity_name?: string;
   conversation_id?: string;
   user_id?: string;
 };
@@ -66,15 +66,15 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   console.log(`[tools/create_task] raw body keys: ${Object.keys(body).join(", ")}`);
 
   const phone = body.phone?.trim();
-  const businessName = body.business_name?.trim();
+  const entityName = body.entity_name?.trim();
 
   console.log(
-    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} conv=${body.conversation_id ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} entity=${entityName} conv=${body.conversation_id ?? "none"}`,
   );
 
-  if (!phone || !businessName) {
+  if (!phone || !entityName) {
     return Response.json({
-      result: "Error: missing phone or business_name. Use lookup_business first to get the phone number.",
+      result: "Error: missing phone or entity_name. Use lookup_business first to get the phone number.",
     });
   }
 
@@ -93,7 +93,7 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   // Create the task row
   const task = await createTask(userId, "ask_hours", {
     phone: resolvedPhone,
-    businessName,
+    entityName,
   });
 
   // Place the outbound call
@@ -109,7 +109,7 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     console.error(`[tools/create_task] outbound call failed:`, detail);
     await updateTaskStatus(task.id, "failed", { outcome: { hours: "" } });
     return Response.json({
-      result: `I tried to call ${businessName} but something went wrong: ${detail}`,
+      result: `I tried to call ${entityName} but something went wrong: ${detail}`,
     });
   }
 
@@ -122,7 +122,7 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   setTimeout(() => checkTaskTimeout(task.id, attempt.id, batchCallId), COMPLETION_TIMEOUT_MS);
 
   return Response.json({
-    result: `I'll call ${businessName} now and report back with their hours.`,
+    result: `I'll call ${entityName} now and report back with their hours.`,
   });
 }
 
@@ -160,7 +160,7 @@ async function checkTaskTimeout(
         await updateTaskStatus(taskId, "failed", { outcome: { hours: "" } });
 
         // Notify the user
-        const details = task.details as { phone: string; businessName: string };
+        const details = task.details as { phone: string; entityName: string };
         const userRows = await db.select().from(users).where(eq(users.id, task.userId)).limit(1);
         const userPhone = userRows[0]?.phoneNumbers[0];
 
@@ -168,7 +168,7 @@ async function checkTaskTimeout(
           try {
             await placeNotificationCall({
               phoneNumber: userPhone,
-              message: `Hi, I called ${details.businessName} but couldn't get their hours. Sorry about that.`,
+              message: `Hi, I called ${details.entityName} but couldn't get their hours. Sorry about that.`,
             });
           } catch (error) {
             console.error(`[tools/create_task] timeout notification failed:`, error);

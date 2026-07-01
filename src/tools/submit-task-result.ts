@@ -59,10 +59,10 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
   }
 
   // Notify the user via voice callback
-  const details = task.details as { phone: string; businessName: string };
+  const details = task.details as { phone: string; entityName: string };
   const message = success
-    ? `Hi, I called ${details.businessName}. Their hours are: ${hours}.`
-    : `Hi, I tried calling ${details.businessName} but couldn't get their hours. Sorry about that.`;
+    ? `Hi, I called ${details.entityName}. Their hours are: ${hours}.`
+    : `Hi, I tried calling ${details.entityName} but couldn't get their hours. Sorry about that.`;
 
   // Find the user's phone number to call back
   const userPhone = await getUserPhoneForTask(task.userId);
