@@ -16,7 +16,7 @@ import {
 } from "./voice-stack.ts";
 import { ALFRED_OVERRIDE_PERMISSIONS } from "./overrides.ts";
 
-export function buildAlfredConversationConfig(toolId: string): ElevenLabs.ConversationalConfig {
+export function buildAlfredConversationConfig(toolIds: string[]): ElevenLabs.ConversationalConfig {
   return {
     asr: ALFRED_ASR,
     turn: ALFRED_TURN,
@@ -50,7 +50,7 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
       prompt: {
         prompt: ALFRED_SYSTEM_PROMPT,
         llm: ALFRED_LLM,
-        toolIds: [toolId],
+        toolIds: toolIds,
         builtInTools: {
           languageDetection: {
             name: "language_detection",
@@ -64,12 +64,12 @@ export function buildAlfredConversationConfig(toolId: string): ElevenLabs.Conver
   };
 }
 
-export function buildAlfredAgentRequest(toolId: string, serverUrl: string) {
+export function buildAlfredAgentRequest(toolIds: string[], serverUrl: string) {
   const baseUrl = serverUrl.replace(/\/$/, "");
 
   return {
     name: "Alfred",
-    conversationConfig: buildAlfredConversationConfig(toolId),
+    conversationConfig: buildAlfredConversationConfig(toolIds),
     platformSettings: {
       overrides: ALFRED_OVERRIDE_PERMISSIONS,
       workspaceOverrides: {

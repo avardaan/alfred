@@ -4,39 +4,72 @@ import {
   requireElevenLabsServerUrl,
 } from "../config.ts";
 import { buildAlfredAgentRequest } from "../elevenlabs/alfred.ts";
+import { buildAlfredOutboundAgentRequest } from "../elevenlabs/alfred-outbound.ts";
 import { publishAgentUpdate } from "../elevenlabs/agent-sync.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
-import { ensureGetWeatherTool } from "../elevenlabs/tools.ts";
+import {
+  ensureCreateTaskTool,
+  ensureGetWeatherTool,
+  ensureSubmitTaskResultTool,
+} from "../elevenlabs/tools.ts";
 
 requireElevenLabsApiKey();
 const serverUrl = requireElevenLabsServerUrl();
 
 const client = createElevenLabsClient();
 
-console.log(`Ensuring get_weather tool → ${serverUrl}/tools/get_weather`);
-const toolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
+console.log(`Ensuring tools → ${serverUrl}`);
+const weatherToolId = await ensureGetWeatherTool(serverUrl, config.elevenLabsWeatherToolId);
+const submitResultToolId = await ensureSubmitTaskResultTool(
+  serverUrl,
+  config.elevenLabsSubmitTaskResultToolId,
+);
+const createTaskToolId = await ensureCreateTaskTool(serverUrl, config.elevenLabsCreateTaskToolId);
 
+console.log(`Weather tool: ${weatherToolId}`);
+console.log(`Submit task result tool: ${submitResultToolId}`);
+console.log(`Create task tool: ${createTaskToolId}`);
+
+// --- Inbound (Alfred) agent ---
 if (config.elevenLabsAgentId) {
-  console.log(`Publishing agent ${config.elevenLabsAgentId} to Main...`);
+  console.log(`\nPublishing inbound agent ${config.elevenLabsAgentId} to Main...`);
   await publishAgentUpdate(
     config.elevenLabsAgentId,
-    buildAlfredAgentRequest(toolId, serverUrl),
+    buildAlfredAgentRequest([weatherToolId, createTaskToolId], serverUrl),
   );
-  console.log(`Agent published: ${config.elevenLabsAgentId}`);
-  console.log(`Weather tool id: ${toolId}`);
-  console.log("\nAdd to .env if missing:");
-  console.log(`ELEVENLABS_WEATHER_TOOL_ID=${toolId}`);
-  process.exit(0);
+  console.log(`Inbound agent published: ${config.elevenLabsAgentId}`);
+} else {
+  console.log("\nCreating Alfred (inbound) agent on ElevenLabs...");
+  const created = await client.conversationalAi.agents.create(
+    buildAlfredAgentRequest([weatherToolId, createTaskToolId], serverUrl),
+  );
+  console.log(`Inbound agent created: ${created.agentId}`);
+  console.log(`\nAdd to .env (do not commit):`);
+  console.log(`ELEVENLABS_AGENT_ID=${created.agentId}`);
 }
 
-console.log("Creating Alfred agent on ElevenLabs...");
-const created = await client.conversationalAi.agents.create(
-  buildAlfredAgentRequest(toolId, serverUrl),
-);
+// --- Outbound (Alfred Outbound) agent ---
+if (config.elevenLabsOutboundAgentId) {
+  console.log(`\nPublishing outbound agent ${config.elevenLabsOutboundAgentId} to Main...`);
+  await publishAgentUpdate(
+    config.elevenLabsOutboundAgentId,
+    buildAlfredOutboundAgentRequest(submitResultToolId),
+  );
+  console.log(`Outbound agent published: ${config.elevenLabsOutboundAgentId}`);
+} else {
+  console.log("\nCreating Alfred Outbound agent on ElevenLabs...");
+  const created = await client.conversationalAi.agents.create(
+    buildAlfredOutboundAgentRequest(submitResultToolId),
+  );
+  console.log(`Outbound agent created: ${created.agentId}`);
+  console.log(`\nAdd to .env (do not commit):`);
+  console.log(`ELEVENLABS_OUTBOUND_AGENT_ID=${created.agentId}`);
+}
 
-console.log(`Agent created: ${created.agentId}`);
-console.log(`Weather tool id: ${toolId}`);
-console.log("\nAdd to .env (do not commit):");
-console.log(`ELEVENLABS_AGENT_ID=${created.agentId}`);
-console.log(`ELEVENLABS_WEATHER_TOOL_ID=${toolId}`);
-console.log("\nNext: bun run import:twilio");
+console.log("\n--- All IDs ---");
+console.log(`ELEVENLABS_AGENT_ID=${config.elevenLabsAgentId ?? "(new — see above)"}`);
+console.log(`ELEVENLABS_OUTBOUND_AGENT_ID=${config.elevenLabsOutboundAgentId ?? "(new — see above)"}`);
+console.log(`ELEVENLABS_WEATHER_TOOL_ID=${weatherToolId}`);
+console.log(`ELEVENLABS_SUBMIT_TASK_RESULT_TOOL_ID=${submitResultToolId}`);
+console.log(`ELEVENLABS_CREATE_TASK_TOOL_ID=${createTaskToolId}`);
+console.log("\nNext: bun run sync:agent");

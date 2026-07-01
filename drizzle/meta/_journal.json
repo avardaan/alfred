@@ -15,6 +15,13 @@
       "when": 1782814774138,
       "tag": "0001_cooing_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782902584752,
+      "tag": "0002_flawless_bastion",
+      "breakpoints": true
     }
   ]
 }
