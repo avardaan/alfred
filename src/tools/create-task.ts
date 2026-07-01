@@ -15,6 +15,7 @@ import {
   placeNotificationCall,
   placeOutboundCall,
 } from "../elevenlabs/outbound-call.ts";
+import { findBusinessPhone } from "./places.ts";
 
 type CreateTaskBody = {
   phone?: string;
@@ -67,12 +68,12 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   const businessName = body.business_name?.trim();
 
   console.log(
-    `[tools/create_task] phone=${phone} business=${businessName} conv=${body.conversation_id ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} conv=${body.conversation_id ?? "none"}`,
   );
 
-  if (!phone || !businessName) {
+  if (!businessName) {
     return Response.json({
-      result: "Error: missing phone or business_name. Please provide both.",
+      result: "Error: missing business_name. Please provide the business name.",
     });
   }
 
@@ -86,17 +87,40 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     });
   }
 
+  // Resolve phone number: use provided, or look up via Google Places
+  let resolvedPhone = phone ? normalizePhone(phone) : undefined;
+  let resolvedBusinessName = businessName;
+
+  if (!resolvedPhone) {
+    console.log(`[tools/create_task] no phone provided, looking up "${businessName}" via Places`);
+    const place = await findBusinessPhone(businessName);
+    if (!place) {
+      return Response.json({
+        result: `I couldn't find a phone number for ${businessName}. Could you provide the number directly?`,
+      });
+    }
+    resolvedPhone = normalizePhone(place.phoneNumber);
+    resolvedBusinessName = place.name;
+    console.log(`[tools/create_task] Places resolved: ${resolvedBusinessName} → ${resolvedPhone}`);
+  }
+
+  if (!resolvedPhone) {
+    return Response.json({
+      result: `Error: could not resolve a valid phone number for ${businessName}.`,
+    });
+  }
+
   // Create the task row
   const task = await createTask(userId, "ask_hours", {
-    phone: normalizePhone(phone),
-    businessName,
+    phone: resolvedPhone,
+    businessName: resolvedBusinessName,
   });
 
   // Place the outbound call
   let batchCallId: string;
   try {
     const result = await placeOutboundCall({
-      phoneNumber: normalizePhone(phone),
+      phoneNumber: resolvedPhone,
       taskId: task.id,
     });
     batchCallId = result.batchCallId;
@@ -118,7 +142,7 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   setTimeout(() => checkTaskTimeout(task.id, attempt.id, batchCallId), COMPLETION_TIMEOUT_MS);
 
   return Response.json({
-    result: `I'll call ${businessName} now and report back with their hours.`,
+    result: `I'll call ${resolvedBusinessName} now and report back with their hours.`,
   });
 }
 

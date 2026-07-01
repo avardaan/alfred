@@ -79,22 +79,22 @@ export function buildCreateTaskToolConfig(
   return {
     name: CREATE_TASK_TOOL_NAME,
     description:
-      "Create a task for Alfred to execute. Currently supports calling a business to ask their hours. Alfred will call the business and report back to the user.",
-    responseTimeoutSecs: 20,
+      "Create a task for Alfred to execute. Currently supports calling a business to ask their hours. Alfred will look up the phone number if not provided. Alfred will call the business and report back to the user.",
+    responseTimeoutSecs: 30,
     apiSchema: {
       url: `${baseUrl}/tools/create_task`,
       method: "POST",
       requestBodySchema: {
         type: "object",
-        required: ["phone", "business_name"],
+        required: ["business_name"],
         properties: {
           phone: {
             type: "string",
-            description: "The phone number to call in E.164 format, e.g. +15105551234.",
+            description: "The phone number to call in E.164 format, e.g. +15105551234. Optional — if omitted, Alfred will look it up from the business name.",
           },
           business_name: {
             type: "string",
-            description: "The name of the business to call.",
+            description: "The name of the business to call. Include the city if known, e.g. 'Tong Sui Dessert Shop, San Francisco'.",
           },
         },
       },
