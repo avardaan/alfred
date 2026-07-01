@@ -96,6 +96,10 @@ export function buildCreateTaskToolConfig(
             type: "string",
             description: "The name of the business to call. Include the city if known, e.g. 'Tong Sui Dessert Shop, San Francisco'.",
           },
+          location: {
+            type: "string",
+            description: "City or area to search in, e.g. 'San Francisco' or 'Oakland'. Optional — if omitted, Alfred uses the user's primary location.",
+          },
         },
       },
     },

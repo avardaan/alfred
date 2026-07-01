@@ -20,6 +20,7 @@ import { findBusinessPhone } from "./places.ts";
 type CreateTaskBody = {
   phone?: string;
   business_name?: string;
+  location?: string;
   conversation_id?: string;
   user_id?: string;
 };
@@ -66,9 +67,10 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const phone = body.phone?.trim();
   const businessName = body.business_name?.trim();
+  const location = body.location?.trim();
 
   console.log(
-    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} conv=${body.conversation_id ?? "none"}`,
+    `[tools/create_task] phone=${phone ?? "(none)"} business=${businessName} loc=${location ?? "(none)"} conv=${body.conversation_id ?? "none"}`,
   );
 
   if (!businessName) {
@@ -92,8 +94,16 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   let resolvedBusinessName = businessName;
 
   if (!resolvedPhone) {
-    console.log(`[tools/create_task] no phone provided, looking up "${businessName}" via Places`);
-    const place = await findBusinessPhone(businessName);
+    // Determine the search query: business name + location override or user's primary location
+    const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const primaryLocation = userRows[0]?.primaryLocation;
+
+    const searchQuery = [businessName, location ?? primaryLocation]
+      .filter(Boolean)
+      .join(", ");
+
+    console.log(`[tools/create_task] no phone provided, looking up "${searchQuery}" via Places`);
+    const place = await findBusinessPhone(searchQuery);
     if (!place) {
       return Response.json({
         result: `I couldn't find a phone number for ${businessName}. Could you provide the number directly?`,

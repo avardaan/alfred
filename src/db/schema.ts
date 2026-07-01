@@ -7,6 +7,7 @@ export const users = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     phoneNumbers: text("phone_numbers").array().notNull(),
+    primaryLocation: text("primary_location"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
