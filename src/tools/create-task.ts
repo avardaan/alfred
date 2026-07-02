@@ -64,6 +64,27 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const resolvedPhone = normalizePhone(phone);
 
+  // Server-side guard: reject obviously fake/placeholder numbers.
+  // The agent should never call create_task without a real user-provided number.
+  if (!resolvedPhone || !resolvedPhone.startsWith("+")) {
+    console.error(`[tools/create_task] invalid phone (not E.164): ${phone}`);
+    return Response.json({
+      result: `Error: "${phone}" is not a valid phone number. Ask the user for the actual number — do not make one up.`,
+    });
+  }
+  // Reject common placeholder patterns (555 numbers, all same digit, sequential)
+  const digits = resolvedPhone.slice(1); // strip +
+  const isPlaceholder =
+    digits.includes("555") && digits.length >= 10 || // 555-01xx is reserved for fiction
+    /^(\d)\1{6,}$/.test(digits) || // all same digit (1111111)
+    /^0123456789|1234567890$/.test(digits); // sequential
+  if (isPlaceholder) {
+    console.error(`[tools/create_task] placeholder phone rejected: ${resolvedPhone}`);
+    return Response.json({
+      result: `Error: "${resolvedPhone}" looks like a placeholder, not a real number. Ask the user for the actual number.`,
+    });
+  }
+
   // Determine originating channel from ElevenLabs system variable headers.
   // For WhatsApp: X-Called-Number is the WhatsApp phone number ID (no + prefix).
   // For voice: X-Called-Number is a phone number (starts with +).
