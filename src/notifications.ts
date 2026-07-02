@@ -1,62 +1,102 @@
-import { getEpisodeByTaskId } from "./db/episodes.ts";
-import { createAttempt } from "./db/tasks.ts";
-import { getUserPhoneForTask } from "./db/tasks.ts";
+import { getEpisodeByTaskId, type Episode } from "./db/episodes.ts";
+import { createAttempt, getUserPhoneForTask } from "./db/tasks.ts";
 import {
   placeNotificationCall,
   sendWhatsAppNotification,
 } from "./elevenlabs/outbound-call.ts";
 
-/**
- * Notify the user of a task result. Routes based on the episode's originating
- * channel: WhatsApp episodes get a WhatsApp message, voice episodes get a
- * voice call. Both are tracked as call_attempts with type "notification".
- */
+type NotificationContext = {
+  taskId: string;
+  message: string;
+  episode: Episode | undefined;
+};
+
+type NotificationStrategy = (ctx: NotificationContext) => Promise<void>;
+
+// --- Strategies -----------------------------------------------------------------
+
+const voiceCallStrategy: NotificationStrategy = async ({ taskId, message }) => {
+  const userPhone = await getUserPhoneForTask(taskId);
+  if (!userPhone) {
+    throw new Error(`No phone number found for task ${taskId}`);
+  }
+  const result = await placeNotificationCall({
+    phoneNumber: userPhone,
+    message,
+    taskId,
+  });
+  await createAttempt(taskId, "notification", {
+    elevenlabsBatchCallId: result.batchCallId,
+  });
+  console.log(`[notify] voice notification placed for task ${taskId}`);
+};
+
+const whatsappStrategy: NotificationStrategy = async ({ taskId, message, episode }) => {
+  if (!episode?.originatingCallerId) {
+    throw new Error("WhatsApp strategy requires originatingCallerId on the episode");
+  }
+  const result = await sendWhatsAppNotification({
+    whatsappUserId: episode.originatingCallerId,
+    message,
+  });
+  await createAttempt(taskId, "notification", {
+    elevenlabsBatchCallId: result.conversationId,
+  });
+  console.log(`[notify] whatsapp notification sent for task ${taskId}`);
+};
+
+// --- Routing policy -------------------------------------------------------------
+//
+// Maps the episode's originating channel to the primary notification strategy.
+// To add cross-channel (e.g. voice→whatsapp), change this function — nothing else.
+// To add a new channel, add a strategy above and add a case here.
+
+function resolvePrimaryStrategy(channel: string | null | undefined): NotificationStrategy {
+  switch (channel) {
+    case "whatsapp":
+      return whatsappStrategy;
+    case "voice":
+    default:
+      return voiceCallStrategy;
+  }
+}
+
+// --- Fallback policy ------------------------------------------------------------
+//
+// Returns the strategy to try if the primary fails. WhatsApp fails → voice is
+// the safe default since every user has a phone number.
+
+function resolveFallbackStrategy(primary: NotificationStrategy): NotificationStrategy | null {
+  if (primary === whatsappStrategy) {
+    return voiceCallStrategy;
+  }
+  return null; // voice has no fallback today
+}
+
+// --- Public API -----------------------------------------------------------------
+
 export async function notifyUser(params: {
   taskId: string;
   message: string;
 }): Promise<void> {
   const episode = await getEpisodeByTaskId(params.taskId);
+  const ctx: NotificationContext = { ...params, episode };
 
-  // WhatsApp channel: send via WhatsApp outbound message API
-  if (episode?.channel === "whatsapp" && episode.originatingCallerId) {
-    try {
-      const result = await sendWhatsAppNotification({
-        whatsappUserId: episode.originatingCallerId,
-        message: params.message,
-      });
-      await createAttempt(params.taskId, "notification", {
-        elevenlabsBatchCallId: result.conversationId,
-      });
-      console.log(`[notify] whatsapp notification sent for task ${params.taskId}`);
-    } catch (error) {
-      console.error(`[notify] whatsapp notification failed, falling back to voice:`, error);
-      await notifyViaVoice(params.taskId, params.message);
-    }
-    return;
-  }
-
-  // Voice channel (or unknown): place a voice call
-  await notifyViaVoice(params.taskId, params.message);
-}
-
-async function notifyViaVoice(taskId: string, message: string): Promise<void> {
-  const userPhone = await getUserPhoneForTask(taskId);
-  if (!userPhone) {
-    console.error(`[notify] no phone number found for task ${taskId}`);
-    return;
-  }
+  const primary = resolvePrimaryStrategy(episode?.channel);
 
   try {
-    const result = await placeNotificationCall({
-      phoneNumber: userPhone,
-      message,
-      taskId,
-    });
-    await createAttempt(taskId, "notification", {
-      elevenlabsBatchCallId: result.batchCallId,
-    });
-    console.log(`[notify] notification call placed for task ${taskId}`);
+    await primary(ctx);
   } catch (error) {
-    console.error(`[notify] notification call failed:`, error);
+    const fallback = resolveFallbackStrategy(primary);
+    if (fallback) {
+      console.error(`[notify] primary strategy failed, falling back:`, error);
+      try {
+        await fallback(ctx);
+      } catch (fallbackError) {
+        console.error(`[notify] fallback strategy also failed:`, fallbackError);
+      }
+    } else {
+      console.error(`[notify] strategy failed (no fallback):`, error);
+    }
   }
 }
