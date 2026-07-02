@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "originating_conversation_id" text;

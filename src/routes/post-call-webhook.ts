@@ -1,15 +1,16 @@
-import { eq } from "drizzle-orm";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { config, requireElevenLabsApiKey } from "../config.ts";
-import { db } from "../db/client.ts";
-import { users } from "../db/schema.ts";
+import { getEpisodeByTaskId, updateEpisodeStatus } from "../db/episodes.ts";
 import { getTask, updateTaskStatus } from "../db/tasks.ts";
-import { placeNotificationCall } from "../elevenlabs/outbound-call.ts";
+import { notifyUser } from "../notifications.ts";
 
 /**
  * Post-call webhook handler. Receives HMAC-signed post_call_transcription events
- * from ElevenLabs when any conversation ends. For outbound worker calls, captures
- * the transcript summary as the task result and notifies the user.
+ * from ElevenLabs when any conversation ends.
+ *
+ * Two call types are handled:
+ * - Worker calls (outbound agent): captures the result, marks the task, notifies the user.
+ * - Notification calls (inbound agent): marks the episode as completed (user was notified).
  */
 export async function handlePostCallWebhook(req: Request): Promise<Response> {
   const secret = config.postCallWebhookSecret;
@@ -54,11 +55,23 @@ export async function handlePostCallWebhook(req: Request): Promise<Response> {
     `[post-call] conv=${conversationId} agent=${agentId} status=${status} task=${taskId ?? "none"} summary=${summary.slice(0, 80)}`,
   );
 
-  // Only process outbound worker calls that have a task_id
-  if (!taskId || agentId !== config.elevenLabsOutboundAgentId) {
+  // Skip calls without a task_id (regular inbound conversations)
+  if (!taskId) {
     return Response.json({ received: true });
   }
 
+  // Notification calls: inbound agent with task_id → user was notified, episode is complete
+  if (agentId !== config.elevenLabsOutboundAgentId) {
+    console.log(`[post-call] notification call ended for task ${taskId}, marking episode complete`);
+    const episode = await getEpisodeByTaskId(taskId);
+    if (episode && episode.status !== "completed" && episode.status !== "failed") {
+      await updateEpisodeStatus(episode.id, "completed");
+      console.log(`[post-call] episode ${episode.id} marked completed`);
+    }
+    return Response.json({ received: true });
+  }
+
+  // Worker calls: outbound agent with task_id → capture result, mark task, notify user
   const task = await getTask(taskId);
   if (!task) {
     console.error(`[post-call] task ${taskId} not found`);
@@ -81,24 +94,13 @@ export async function handlePostCallWebhook(req: Request): Promise<Response> {
 
   console.log(`[post-call] task ${taskId} marked ${success ? "completed" : "failed"}`);
 
-  // Notify the user
+  // Notify the user (tracked as a notification call_attempt)
   const details = task.details as { phone: string; entityName: string; instruction: string };
   const message = success
     ? `Hi, I called ${details.entityName}. Here's what happened: ${result}.`
     : `Hi, I tried calling ${details.entityName} but couldn't complete the task. ${result}`;
 
-  const userRows = await db.select().from(users).where(eq(users.id, task.userId)).limit(1);
-  const userPhone = userRows[0]?.phoneNumbers[0];
-
-  if (userPhone) {
-    try {
-      await placeNotificationCall({ phoneNumber: userPhone, message });
-    } catch (error) {
-      console.error(`[post-call] notification call failed:`, error);
-    }
-  } else {
-    console.error(`[post-call] no phone number found for user ${task.userId}`);
-  }
+  await notifyUser({ taskId, message });
 
   return Response.json({ received: true });
 }

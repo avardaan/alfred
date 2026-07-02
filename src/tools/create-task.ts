@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { normalizePhone } from "../db/users.ts";
-import { db } from "../db/client.ts";
-import { users } from "../db/schema.ts";
+import { createEpisode } from "../db/episodes.ts";
 import {
   createAttempt,
   createTask,
@@ -13,15 +11,16 @@ import {
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
 import {
   getConversationStatus,
-  placeNotificationCall,
   placeOutboundCall,
 } from "../elevenlabs/outbound-call.ts";
+import { notifyUser } from "../notifications.ts";
 import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type CreateTaskBody = {
   phone?: string;
   entity_name?: string;
   instruction?: string;
+  conversation_id?: string;
 };
 
 const RETRY_DELAY_MS = 75 * 1000; // 60s ringing timeout + 15s buffer before checking
@@ -64,8 +63,9 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const resolvedPhone = normalizePhone(phone);
 
-  // Create the task row
-  const task = await createTask(userId, "outbound_call", {
+  // Create an episode for this user request, then the task under it
+  const episode = await createEpisode(userId, body.conversation_id);
+  const task = await createTask(episode.id, "outbound_call", {
     phone: resolvedPhone,
     entityName,
     instruction,
@@ -89,8 +89,8 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
     });
   }
 
-  // Create an attempt record
-  const attempt = await createAttempt(task.id, { elevenlabsBatchCallId: batchCallId });
+  // Create a worker call attempt record
+  const attempt = await createAttempt(task.id, "worker", { elevenlabsBatchCallId: batchCallId });
   await updateAttempt(attempt.id, "in_progress");
   await updateTaskStatus(task.id, "in_progress");
 
@@ -132,7 +132,7 @@ async function checkAndRetry(
 
     if (!recipient?.conversationId) {
       console.log(`[tools/create_task] attempt ${attemptNumber}: no conversationId`);
-      await handleNoAnswer(taskId, task.userId, details, attemptNumber);
+      await handleNoAnswer(taskId, details, attemptNumber);
       return;
     }
 
@@ -151,7 +151,7 @@ async function checkAndRetry(
       elevenlabsConversationId: recipient.conversationId,
       failureReason: status === "initiated" ? "No answer" : `Call status: ${status ?? "unknown"}`,
     });
-    await handleNoAnswer(taskId, task.userId, details, attemptNumber);
+    await handleNoAnswer(taskId, details, attemptNumber);
   } catch (error) {
     console.error(`[tools/create_task] retry check failed:`, error);
   }
@@ -162,7 +162,6 @@ async function checkAndRetry(
  */
 async function handleNoAnswer(
   taskId: string,
-  userId: string,
   details: TaskDetails,
   attemptNumber: number,
 ): Promise<void> {
@@ -174,7 +173,7 @@ async function handleNoAnswer(
         taskId,
         instruction: details.instruction,
       });
-      const attempt = await createAttempt(taskId, {
+      const attempt = await createAttempt(taskId, "worker", {
         elevenlabsBatchCallId: result.batchCallId,
       });
       await updateAttempt(attempt.id, "in_progress");
@@ -186,12 +185,11 @@ async function handleNoAnswer(
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       console.error(`[tools/create_task] retry call failed:`, detail);
-      await failTaskAndNotify(taskId, userId, `I tried calling ${details.entityName} but the retry failed.`);
+      await failTaskAndNotify(taskId, `I tried calling ${details.entityName} but the retry failed.`);
     }
   } else {
     await failTaskAndNotify(
       taskId,
-      userId,
       `I tried calling ${details.entityName} but no one answered after multiple attempts.`,
     );
   }
@@ -202,21 +200,11 @@ async function handleNoAnswer(
  */
 async function failTaskAndNotify(
   taskId: string,
-  userId: string,
   message: string,
 ): Promise<void> {
   await updateTaskStatus(taskId, "failed", { outcome: { result: message } });
   console.log(`[tools/create_task] task ${taskId} marked failed: ${message}`);
-
-  const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  const userPhone = userRows[0]?.phoneNumbers[0];
-  if (userPhone) {
-    try {
-      await placeNotificationCall({ phoneNumber: userPhone, message });
-    } catch (error) {
-      console.error(`[tools/create_task] notification failed:`, error);
-    }
-  }
+  await notifyUser({ taskId, message });
 }
 
 /**
@@ -233,7 +221,6 @@ async function checkFinalTimeout(taskId: string): Promise<void> {
   const details = task.details as TaskDetails;
   await failTaskAndNotify(
     taskId,
-    task.userId,
     `I called ${details.entityName} but couldn't complete the task. Sorry about that.`,
   );
 }

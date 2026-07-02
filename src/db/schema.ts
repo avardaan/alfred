@@ -19,13 +19,31 @@ export const users = pgTable(
   ],
 );
 
-export const tasks = pgTable(
-  "tasks",
+export const episodes = pgTable(
+  "episodes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    originatingConversationId: text("originating_conversation_id"),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [
+    index("episodes_user_id_idx").on(table.userId),
+    index("episodes_originating_conversation_idx").on(table.originatingConversationId),
+  ],
+);
+
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    episodeId: uuid("episode_id")
+      .notNull()
+      .references(() => episodes.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     status: text("status").notNull().default("pending"),
     details: jsonb("details").notNull(),
@@ -34,16 +52,17 @@ export const tasks = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
   },
-  (table) => [index("tasks_user_id_idx").on(table.userId)],
+  (table) => [index("tasks_episode_id_idx").on(table.episodeId)],
 );
 
-export const taskAttempts = pgTable(
-  "task_attempts",
+export const callAttempts = pgTable(
+  "call_attempts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     taskId: uuid("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
     elevenlabsConversationId: text("elevenlabs_conversation_id"),
     elevenlabsBatchCallId: text("elevenlabs_batch_call_id"),
     status: text("status").notNull().default("pending"),
@@ -51,12 +70,14 @@ export const taskAttempts = pgTable(
     endedAt: timestamp("ended_at"),
     failureReason: text("failure_reason"),
   },
-  (table) => [index("task_attempts_task_id_idx").on(table.taskId)],
+  (table) => [index("call_attempts_task_id_idx").on(table.taskId)],
 );
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type Episode = typeof episodes.$inferSelect;
+export type NewEpisode = typeof episodes.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
-export type TaskAttempt = typeof taskAttempts.$inferSelect;
-export type NewTaskAttempt = typeof taskAttempts.$inferInsert;
+export type CallAttempt = typeof callAttempts.$inferSelect;
+export type NewCallAttempt = typeof callAttempts.$inferInsert;

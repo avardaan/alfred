@@ -29,6 +29,13 @@
       "when": 1782938604746,
       "tag": "0003_bent_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782951607051,
+      "tag": "0004_sleepy_hellfire_club",
+      "breakpoints": true
     }
   ]
 }

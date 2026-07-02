@@ -1,13 +1,10 @@
-import { eq } from "drizzle-orm";
-import { db } from "../db/client.ts";
-import { users } from "../db/schema.ts";
 import {
   findAttemptByConversationId,
   getTask,
   updateAttempt,
   updateTaskStatus,
 } from "../db/tasks.ts";
-import { placeNotificationCall } from "../elevenlabs/outbound-call.ts";
+import { notifyUser } from "../notifications.ts";
 import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type SubmitTaskResultBody = {
@@ -72,32 +69,17 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
     }
   }
 
-  // Notify the user via voice callback
+  // Notify the user via voice callback (tracked as a notification call_attempt)
   const details = task.details as { phone: string; entityName: string; instruction: string };
   const message = success
     ? `Hi, I called ${details.entityName}. Here's what happened: ${result}.`
     : `Hi, I tried calling ${details.entityName} but couldn't complete the task. Sorry about that.`;
 
-  // Find the user's phone number to call back
-  const userPhone = await getUserPhoneForTask(task.userId);
-  if (userPhone) {
-    try {
-      await placeNotificationCall({ phoneNumber: userPhone, message });
-    } catch (error) {
-      console.error(`[tools/submit_task_result] notification call failed:`, error);
-    }
-  } else {
-    console.error(`[tools/submit_task_result] no phone number found for user ${task.userId}`);
-  }
+  await notifyUser({ taskId: task.id, message });
 
   return Response.json({
     result: success
       ? "Result recorded. Thank you, goodbye."
       : "Failure recorded. Thank you, goodbye.",
   });
-}
-
-async function getUserPhoneForTask(userId: string): Promise<string | undefined> {
-  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return rows[0]?.phoneNumbers[0];
 }

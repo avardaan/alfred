@@ -54,6 +54,7 @@ export async function placeOutboundCall(params: {
 export async function placeNotificationCall(params: {
   phoneNumber: string;
   message: string;
+  taskId: string;
 }): Promise<{ batchCallId: string }> {
   const client = createElevenLabsClient();
   const inboundAgentId = config.elevenLabsAgentId;
@@ -66,7 +67,7 @@ export async function placeNotificationCall(params: {
   }
 
   const batchCall = await client.conversationalAi.batchCalls.create({
-    callName: `notify-${Date.now()}`,
+    callName: `notify-${params.taskId.slice(0, 8)}`,
     agentId: inboundAgentId,
     agentPhoneNumberId,
     recipients: [
@@ -80,6 +81,7 @@ export async function placeNotificationCall(params: {
           },
           dynamicVariables: {
             notification_message: params.message,
+            task_id: params.taskId,
           },
         },
       },
