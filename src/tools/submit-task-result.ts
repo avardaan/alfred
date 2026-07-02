@@ -69,10 +69,10 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
     }
   }
 
-  // Notify the user via voice callback (tracked as a notification call_attempt)
+  // Notify the user (tracked as a notification call_attempt)
   const details = task.details as { phone: string; entityName: string; instruction: string };
   const message = success
-    ? `Hi, I called ${details.entityName}. Here's what happened: ${result}.`
+    ? `Hi, I called ${details.entityName}. ${result}`
     : `Hi, I tried calling ${details.entityName} but couldn't complete the task. Sorry about that.`;
 
   await notifyUser({ taskId: task.id, message });

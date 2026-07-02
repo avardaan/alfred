@@ -5,6 +5,23 @@ import { getTask, updateTaskStatus } from "../db/tasks.ts";
 import { notifyUser } from "../notifications.ts";
 
 /**
+ * Clean up a transcript summary for spoken notification.
+ * Removes references to "AI agent/assistant" and rephrases to first person
+ * so Alfred speaks as one entity, not describing another agent's actions.
+ */
+function cleanResultForSpeech(text: string): string {
+  return text
+    .replace(/The AI agent,? ?(?:acting|calling|representing)?[^.]*?on behalf of[^.]*?,? ?/gi, "I ")
+    .replace(/The AI agent,? /gi, "I ")
+    .replace(/An AI agent,? /gi, "I ")
+    .replace(/The agent,? /gi, "I ")
+    .replace(/an AI assistant,? /gi, "I ")
+    .replace(/AI assistant/gi, "I")
+    .replace(/\bI I\b/g, "I")
+    .trim();
+}
+
+/**
  * Post-call webhook handler. Receives HMAC-signed post_call_transcription events
  * from ElevenLabs when any conversation ends.
  *
@@ -97,7 +114,7 @@ export async function handlePostCallWebhook(req: Request): Promise<Response> {
   // Notify the user (tracked as a notification call_attempt)
   const details = task.details as { phone: string; entityName: string; instruction: string };
   const message = success
-    ? `Hi, I called ${details.entityName}. Here's what happened: ${result}.`
+    ? `Hi, I called ${details.entityName}. ${cleanResultForSpeech(result)}`
     : `Hi, I tried calling ${details.entityName} but couldn't complete the task. ${result}`;
 
   await notifyUser({ taskId, message });
