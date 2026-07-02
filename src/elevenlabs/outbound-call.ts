@@ -1,5 +1,5 @@
 import type { ElevenLabs } from "@elevenlabs/elevenlabs-js";
-import { config } from "../config.ts";
+import { config, requireElevenLabsApiKey } from "../config.ts";
 import { createElevenLabsClient } from "./client.ts";
 
 /**
@@ -93,6 +93,70 @@ export async function placeNotificationCall(params: {
   );
 
   return { batchCallId: batchCall.id };
+}
+
+/**
+ * Send a notification to the user via WhatsApp using a pre-approved message template.
+ * The template "alfred_client_generic" has one body parameter: the result message.
+ * Returns a conversation_id for tracking.
+ */
+export async function sendWhatsAppNotification(params: {
+  whatsappUserId: string;
+  message: string;
+}): Promise<{ conversationId: string }> {
+  const client = createElevenLabsClient();
+  const agentId = config.elevenLabsAgentId;
+  const whatsappPhoneNumberId = config.elevenLabsWhatsappPhoneNumberId;
+  const templateName = config.whatsappTemplateName;
+  const templateLanguageCode = config.whatsappTemplateLanguageCode ?? "en_US";
+
+  if (!agentId) {
+    throw new Error("Missing ELEVENLABS_AGENT_ID. Run `bun run setup` first.");
+  }
+  if (!whatsappPhoneNumberId) {
+    throw new Error("Missing ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID.");
+  }
+  if (!templateName) {
+    throw new Error("Missing WHATSAPP_TEMPLATE_NAME.");
+  }
+
+  const response = await fetch("https://api.elevenlabs.io/v1/convai/whatsapp/outbound-message", {
+    method: "POST",
+    headers: {
+ "xi-api-key": requireElevenLabsApiKey(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      whatsapp_phone_number_id: whatsappPhoneNumberId,
+      whatsapp_user_id: params.whatsappUserId,
+      template_name: templateName,
+      template_language_code: templateLanguageCode,
+      template_params: [
+        {
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: params.message,
+            },
+          ],
+        },
+      ],
+      agent_id: agentId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`WhatsApp outbound message failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json() as { conversation_id: string };
+  console.log(
+    `[outbound] whatsapp notification → conversation ${data.conversation_id} (${params.whatsappUserId})`,
+  );
+
+  return { conversationId: data.conversation_id };
 }
 
 /**

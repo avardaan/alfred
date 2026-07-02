@@ -27,6 +27,8 @@ export const episodes = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     originatingConversationId: text("originating_conversation_id"),
+    channel: text("channel"),
+    originatingCallerId: text("originating_caller_id"),
     status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),

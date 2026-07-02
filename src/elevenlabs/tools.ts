@@ -99,6 +99,8 @@ export function buildCreateTaskToolConfig(
       requestHeaders: {
         "X-User-Id": { variableName: "system__user_id" },
         "X-Webhook-Secret": { secretId: webhookSecretId },
+        "X-Caller-Id": { variableName: "system__caller_id" },
+        "X-Called-Number": { variableName: "system__called_number" },
       },
       requestBodySchema: {
         type: "object",

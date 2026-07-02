@@ -14,6 +14,7 @@ import {
   placeOutboundCall,
 } from "../elevenlabs/outbound-call.ts";
 import { notifyUser } from "../notifications.ts";
+import { config } from "../config.ts";
 import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
 
 type CreateTaskBody = {
@@ -63,8 +64,23 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 
   const resolvedPhone = normalizePhone(phone);
 
+  // Determine originating channel from ElevenLabs system variable headers.
+  // For WhatsApp: X-Called-Number is the WhatsApp phone number ID (no + prefix).
+  // For voice: X-Called-Number is a phone number (starts with +).
+  const callerId = req.headers.get("x-caller-id") ?? undefined;
+  const calledNumber = req.headers.get("x-called-number") ?? undefined;
+  const whatsappPhoneNumberId = config.elevenLabsWhatsappPhoneNumberId;
+  const channel =
+    calledNumber && whatsappPhoneNumberId && calledNumber === whatsappPhoneNumberId
+      ? "whatsapp"
+      : "voice";
+
+  console.log(
+    `[tools/create_task] channel=${channel} callerId=${callerId ?? "none"} calledNumber=${calledNumber ?? "none"}`,
+  );
+
   // Create an episode for this user request, then the task under it
-  const episode = await createEpisode(userId, body.conversation_id);
+  const episode = await createEpisode(userId, body.conversation_id, channel, callerId);
   const task = await createTask(episode.id, "outbound_call", {
     phone: resolvedPhone,
     entityName,

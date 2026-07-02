@@ -8,12 +8,16 @@ export type { Episode } from "./schema.ts";
 export async function createEpisode(
   userId: string,
   originatingConversationId?: string,
+  channel?: string,
+  originatingCallerId?: string,
 ): Promise<Episode> {
   const [episode] = await db
     .insert(episodes)
     .values({
       userId,
       originatingConversationId,
+      channel,
+      originatingCallerId,
       status: "in_progress",
     } satisfies NewEpisode)
     .returning();
@@ -51,6 +55,8 @@ export async function getEpisodeByTaskId(
       id: episodes.id,
       userId: episodes.userId,
       originatingConversationId: episodes.originatingConversationId,
+      channel: episodes.channel,
+      originatingCallerId: episodes.originatingCallerId,
       status: episodes.status,
       createdAt: episodes.createdAt,
       completedAt: episodes.completedAt,

@@ -32,6 +32,9 @@ export const config = {
   elevenLabsWebhookSecretId: optional("ELEVENLABS_WEBHOOK_SECRET_ID"),
   postCallWebhookId: optional("ELEVENLABS_POST_CALL_WEBHOOK_ID"),
   postCallWebhookSecret: optional("ELEVENLABS_POST_CALL_WEBHOOK_SECRET"),
+  elevenLabsWhatsappPhoneNumberId: optional("ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID"),
+  whatsappTemplateName: optional("WHATSAPP_TEMPLATE_NAME"),
+  whatsappTemplateLanguageCode: optional("WHATSAPP_TEMPLATE_LANGUAGE_CODE"),
 };
 
 export function requireElevenLabsApiKey(): string {
