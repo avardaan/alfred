@@ -39,12 +39,21 @@ export function buildAlfredOutboundConversationConfig(
       dynamicVariables: {
         dynamicVariablePlaceholders: {
           task_instruction: "Could you tell me your business hours?",
+          task_id: "00000000-0000-0000-0000-000000000000",
         },
       },
       prompt: {
         prompt: ALFRED_OUTBOUND_SYSTEM_PROMPT,
         llm: ALFRED_LLM,
         toolIds: [submitResultToolId],
+        builtInTools: {
+          voicemailDetection: {
+            name: "voicemail_detection",
+            params: {
+              systemToolType: "voicemail_detection",
+            },
+          },
+        },
       },
     },
   };

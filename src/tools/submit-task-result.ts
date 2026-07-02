@@ -43,6 +43,15 @@ export async function handleSubmitTaskResultTool(req: Request): Promise<Response
     return Response.json({ result: "Error: missing task_id." });
   }
 
+  // Validate task_id is a UUID to prevent DB errors from hallucinated values
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_REGEX.test(taskId)) {
+    console.error(`[tools/submit_task_result] invalid task_id (not a UUID): ${taskId}`);
+    return Response.json({
+      result: `Error: task_id must be a valid UUID. Use the exact value of the {{task_id}} dynamic variable, not a description. The task_id looks like "32c382a8-ec5d-45b4-a782-76e3bd6c29f1".`,
+    });
+  }
+
   const task = await getTask(taskId);
   if (!task) {
     console.error(`[tools/submit_task_result] task ${taskId} not found`);
