@@ -9,10 +9,7 @@ import {
   type TaskDetails,
 } from "../db/tasks.ts";
 import { createElevenLabsClient } from "../elevenlabs/client.ts";
-import {
-  getConversationStatus,
-  placeOutboundCall,
-} from "../elevenlabs/outbound-call.ts";
+import { placeOutboundCall } from "../elevenlabs/outbound-call.ts";
 import { notifyUser } from "../notifications.ts";
 import { config } from "../config.ts";
 import { unauthorizedResponse, verifyWebhookSecret } from "../webhook/auth.ts";
@@ -26,7 +23,7 @@ type CreateTaskBody = {
 
 const RETRY_DELAY_MS = 75 * 1000; // 60s ringing timeout + 15s buffer before checking
 const COMPLETION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min final safety net for any stuck state
-const MAX_ATTEMPTS = 2; // initial call + 1 retry
+export const MAX_ATTEMPTS = 2; // initial call + 1 retry
 
 export async function handleCreateTaskTool(req: Request): Promise<Response> {
   if (!verifyWebhookSecret(req)) {
@@ -115,6 +112,8 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
       phoneNumber: resolvedPhone,
       taskId: task.id,
       instruction,
+      attemptNumber: 1,
+      maxAttempts: MAX_ATTEMPTS,
     });
     batchCallId = result.batchCallId;
   } catch (error) {
@@ -127,11 +126,14 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
   }
 
   // Create a worker call attempt record
-  const attempt = await createAttempt(task.id, "worker", { elevenlabsBatchCallId: batchCallId });
+  const attempt = await createAttempt(task.id, "worker", {
+    elevenlabsBatchCallId: batchCallId,
+    attemptNumber: 1,
+  });
   await updateAttempt(attempt.id, "in_progress");
   await updateTaskStatus(task.id, "in_progress");
 
-  // Schedule retry check (if no answer after ringing timeout, retry once)
+  // Schedule ringing-timeout check (if call never connects/no-answers, retry once)
   setTimeout(
     () => checkAndRetry(task.id, attempt.id, batchCallId, 1),
     RETRY_DELAY_MS,
@@ -146,9 +148,68 @@ export async function handleCreateTaskTool(req: Request): Promise<Response> {
 }
 
 /**
- * Check if the call was answered. If not (status "initiated" or "failed"),
- * retry once. If max attempts reached, mark task as failed and notify user.
+ * Place a retry worker attempt for a task. Used by:
+ *  - checkAndRetry when the previous attempt terminates with no answer
+ *    (batch-call recipient status failed/cancelled and no conversation).
+ *  - submit_task_result when the agent explicitly requests a retry after
+ *    reaching voicemail on a non-final attempt.
+ *
+ * `nextAttemptNumber` is 1-indexed. The function:
+ *  1. Places a fresh outbound call with attempt_number/max_attempts exposed
+ *     so the worker agent knows whether to leave a voicemail on this attempt.
+ *  2. Creates a worker call_attempt row with that attempt_number.
+ *  3. Re-arms the ringing-timeout check.
+ *
+ * Throws if the outbound call fails — the caller is responsible for
+ * fail-and-notify handling.
  */
+export async function placeRetryAttempt(
+  taskId: string,
+  details: TaskDetails,
+  nextAttemptNumber: number,
+): Promise<void> {
+  const result = await placeOutboundCall({
+    phoneNumber: details.phone,
+    taskId,
+    instruction: details.instruction,
+    attemptNumber: nextAttemptNumber,
+    maxAttempts: MAX_ATTEMPTS,
+  });
+
+  const attempt = await createAttempt(taskId, "worker", {
+    elevenlabsBatchCallId: result.batchCallId,
+    attemptNumber: nextAttemptNumber,
+  });
+  await updateAttempt(attempt.id, "in_progress");
+
+  console.log(
+    `[tools/create_task] retry task ${taskId} → attempt ${nextAttemptNumber}/${MAX_ATTEMPTS} (batch ${result.batchCallId})`,
+  );
+
+  setTimeout(
+    () => checkAndRetry(taskId, attempt.id, result.batchCallId, nextAttemptNumber),
+    RETRY_DELAY_MS,
+  );
+}
+
+/**
+ * Check whether a batch call recipient answered. Branches on the recipient's
+ * lifecycle status — NOT on conversation_id — so a slow voicemail pickup is
+ * never mistaken for "no answer" (the original duplicate-dial bug):
+ *
+ *   pending | dispatched | initiated  → still ringing — re-arm the timer.
+ *   in_progress | completed | voicemail → call connected (human or voicemail).
+ *                                          The worker agent owns this case:
+ *                                          it calls submit_task_result (with
+ *                                          retry=true if on a non-final attempt
+ *                                          and it hit voicemail, or success
+ *                                          otherwise). The post-call webhook
+ *                                          remains a fallback for completion.
+ *   failed | cancelled (no conversation) → genuine no-answer — retry-or-fail.
+ */
+const RINGING_RECIPIENT_STATUSES = new Set(["pending", "dispatched", "initiated"]);
+const CONNECTED_RECIPIENT_STATUSES = new Set(["in_progress", "completed", "voicemail"]);
+
 async function checkAndRetry(
   taskId: string,
   attemptId: string,
@@ -166,27 +227,36 @@ async function checkAndRetry(
     const client = createElevenLabsClient();
     const batchCall = await client.conversationalAi.batchCalls.get(batchCallId);
     const recipient = batchCall.recipients[0];
+    const recipientStatus = recipient?.status;
+    const conversationId = recipient?.conversationId;
 
-    if (!recipient?.conversationId) {
-      console.log(`[tools/create_task] attempt ${attemptNumber}: no conversationId`);
-      await handleNoAnswer(taskId, details, attemptNumber);
-      return;
-    }
-
-    const status = await getConversationStatus(recipient.conversationId);
     console.log(
-      `[tools/create_task] attempt ${attemptNumber} conv ${recipient.conversationId} status: ${status}`,
+      `[tools/create_task] attempt ${attemptNumber} batch ${batchCallId} recipient_status=${recipientStatus ?? "unknown"} conv=${conversationId ?? "none"}`,
     );
 
-    // Call was answered — let the post-call webhook handle completion
-    if (status === "processing" || status === "done") {
+    if (recipientStatus && CONNECTED_RECIPIENT_STATUSES.has(recipientStatus)) {
+      // Call connected (human or voicemail). Let the worker agent call
+      // submit_task_result — its retry flag drives the next-attempt scheduling.
+      // The post-call webhook is the fallback if submit_task_result never fires.
       return;
     }
 
-    // No answer (initiated/failed/undefined) — mark attempt failed, retry or fail task
+    if (recipientStatus && RINGING_RECIPIENT_STATUSES.has(recipientStatus)) {
+      // Still ringing. Re-arm — voicemail pickup can happen well after the
+      // initial ringing timeout used by setTimeout.
+      console.log(`[tools/create_task] attempt ${attemptNumber} still ringing, re-arming`);
+      setTimeout(
+        () => checkAndRetry(taskId, attemptId, batchCallId, attemptNumber),
+        RETRY_DELAY_MS,
+      );
+      return;
+    }
+
+    // Terminal no-answer (failed/cancelled/unknown) — mark attempt failed and retry-or-fail.
+    const failureReason = `Call ${recipientStatus ?? "terminated"}`;
     await updateAttempt(attemptId, "failed", {
-      elevenlabsConversationId: recipient.conversationId,
-      failureReason: status === "initiated" ? "No answer" : `Call status: ${status ?? "unknown"}`,
+      elevenlabsConversationId: conversationId,
+      failureReason,
     });
     await handleNoAnswer(taskId, details, attemptNumber);
   } catch (error) {
@@ -205,20 +275,7 @@ async function handleNoAnswer(
   if (attemptNumber < MAX_ATTEMPTS) {
     console.log(`[tools/create_task] retrying task ${taskId} (attempt ${attemptNumber + 1})`);
     try {
-      const result = await placeOutboundCall({
-        phoneNumber: details.phone,
-        taskId,
-        instruction: details.instruction,
-      });
-      const attempt = await createAttempt(taskId, "worker", {
-        elevenlabsBatchCallId: result.batchCallId,
-      });
-      await updateAttempt(attempt.id, "in_progress");
-
-      setTimeout(
-        () => checkAndRetry(taskId, attempt.id, result.batchCallId, attemptNumber + 1),
-        RETRY_DELAY_MS,
-      );
+      await placeRetryAttempt(taskId, details, attemptNumber + 1);
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       console.error(`[tools/create_task] retry call failed:`, detail);

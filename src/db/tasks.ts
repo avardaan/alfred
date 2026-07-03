@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 
 import { db } from "./client.ts";
 import { callAttempts, episodes, tasks, users, type NewTask, type Task } from "./schema.ts";
@@ -53,7 +53,7 @@ export async function updateTaskStatus(
 export async function createAttempt(
   taskId: string,
   type: "worker" | "notification",
-  opts?: { elevenlabsBatchCallId?: string },
+  opts?: { elevenlabsBatchCallId?: string; attemptNumber?: number },
 ): Promise<typeof callAttempts.$inferSelect> {
   const [attempt] = await db
     .insert(callAttempts)
@@ -61,6 +61,7 @@ export async function createAttempt(
       taskId,
       type,
       status: "pending",
+      attemptNumber: opts?.attemptNumber ?? 1,
       elevenlabsBatchCallId: opts?.elevenlabsBatchCallId,
     })
     .returning();
@@ -99,6 +100,48 @@ export async function findAttemptByConversationId(
     .select()
     .from(callAttempts)
     .where(eq(callAttempts.elevenlabsConversationId, conversationId))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Latest worker attempt for a task, ordered by attempt_number descending so
+ * the caller always sees the most recent attempt regardless of status.
+ */
+export async function findLatestWorkerAttempt(
+  taskId: string,
+): Promise<typeof callAttempts.$inferSelect | undefined> {
+  const rows = await db
+    .select()
+    .from(callAttempts)
+    .where(and(eq(callAttempts.taskId, taskId), eq(callAttempts.type, "worker")))
+    .orderBy(desc(callAttempts.attemptNumber))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Total number of worker attempts ever created for a task.
+ */
+export async function countWorkerAttempts(taskId: string): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(callAttempts)
+    .where(and(eq(callAttempts.taskId, taskId), eq(callAttempts.type, "worker")));
+  return Number(rows[0]?.n ?? 0);
+}
+
+/**
+ * Find an attempt by its batch call ID — used by retry/timeout code that
+ * tracks the recipient via the ElevenLabs batch call rather than the conversation.
+ */
+export async function findAttemptByBatchCallId(
+  batchCallId: string,
+): Promise<typeof callAttempts.$inferSelect | undefined> {
+  const rows = await db
+    .select()
+    .from(callAttempts)
+    .where(eq(callAttempts.elevenlabsBatchCallId, batchCallId))
     .limit(1);
   return rows[0];
 }

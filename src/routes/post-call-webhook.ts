@@ -1,7 +1,12 @@
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { config, requireElevenLabsApiKey } from "../config.ts";
 import { getEpisodeByTaskId, updateEpisodeStatus } from "../db/episodes.ts";
-import { getTask, updateTaskStatus } from "../db/tasks.ts";
+import {
+  findAttemptByConversationId,
+  findLatestWorkerAttempt,
+  getTask,
+  updateTaskStatus,
+} from "../db/tasks.ts";
 import { notifyUser } from "../notifications.ts";
 
 /**
@@ -99,6 +104,24 @@ export async function handlePostCallWebhook(req: Request): Promise<Response> {
   if (task.status === "completed" || task.status === "failed") {
     console.log(`[post-call] task ${taskId} already ${task.status}, skipping`);
     return Response.json({ received: true });
+  }
+
+  // If this conversation was a non-final attempt and the agent already asked
+  // for a retry (a newer worker attempt exists in flight), don't mark the
+  // task complete from THIS conversation — the retry attempt owns the outcome.
+  if (conversationId) {
+    const thisAttempt = await findAttemptByConversationId(conversationId);
+    const latestWorker = await findLatestWorkerAttempt(taskId);
+    if (
+      thisAttempt &&
+      latestWorker &&
+      latestWorker.attemptNumber > thisAttempt.attemptNumber
+    ) {
+      console.log(
+        `[post-call] task ${taskId} retry in flight (this=attempt ${thisAttempt.attemptNumber}, latest=attempt ${latestWorker.attemptNumber}), skipping`,
+      );
+      return Response.json({ received: true });
+    }
   }
 
   // Mark the task based on the conversation outcome

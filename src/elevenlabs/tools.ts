@@ -52,7 +52,7 @@ export function buildSubmitTaskResultToolConfig(
   return {
     name: SUBMIT_TASK_RESULT_TOOL_NAME,
     description:
-      "Submit the result of an outbound task. Always call this before ending the call — describe what happened in the result field, with success=true if the task was completed or success=false if it failed.",
+      "Submit the result of an outbound task. Always call this before ending the call — describe what happened in the result field, with success=true if the task was completed or success=false if it failed. Set retry=true ONLY when you reached voicemail on a non-final attempt and did not deliver the message — the server will then place another attempt instead of completing the task.",
     responseTimeoutSecs: 15,
     apiSchema: {
       url: `${baseUrl}/tools/submit_task_result`,
@@ -75,6 +75,10 @@ export function buildSubmitTaskResultToolConfig(
           success: {
             type: "boolean",
             description: "Whether the task was completed successfully.",
+          },
+          retry: {
+            type: "boolean",
+            description: "Set to true ONLY when you reached voicemail on a non-final attempt (attempt_number < max_attempts) and did not deliver the message. The server will place another call attempt instead of completing the task. Never set this on the final attempt.",
           },
         },
       },

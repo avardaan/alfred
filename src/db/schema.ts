@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable(
   "users",
@@ -65,6 +65,7 @@ export const callAttempts = pgTable(
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
+    attemptNumber: integer("attempt_number").notNull().default(1),
     elevenlabsConversationId: text("elevenlabs_conversation_id"),
     elevenlabsBatchCallId: text("elevenlabs_batch_call_id"),
     status: text("status").notNull().default("pending"),

@@ -11,6 +11,8 @@ export async function placeOutboundCall(params: {
   phoneNumber: string;
   taskId: string;
   instruction: string;
+  attemptNumber?: number;
+  maxAttempts?: number;
 }): Promise<{ batchCallId: string }> {
   const client = createElevenLabsClient();
   const outboundAgentId = config.elevenLabsOutboundAgentId;
@@ -22,8 +24,11 @@ export async function placeOutboundCall(params: {
     throw new Error("Missing ELEVENLABS_PHONE_NUMBER_ID. Run `bun run import:twilio` first.");
   }
 
+  const attemptNumber = params.attemptNumber ?? 1;
+  const maxAttempts = params.maxAttempts ?? 1;
+
   const batchCall = await client.conversationalAi.batchCalls.create({
-    callName: `task-${params.taskId}`,
+    callName: `task-${params.taskId}-attempt-${attemptNumber}`,
     agentId: outboundAgentId,
     agentPhoneNumberId,
     recipients: [
@@ -33,6 +38,8 @@ export async function placeOutboundCall(params: {
           dynamicVariables: {
             task_id: params.taskId,
             task_instruction: params.instruction,
+            attempt_number: String(attemptNumber),
+            max_attempts: String(maxAttempts),
           },
         },
       },
@@ -40,7 +47,7 @@ export async function placeOutboundCall(params: {
   });
 
   console.log(
-    `[outbound] task ${params.taskId} → batch call ${batchCall.id} (${params.phoneNumber})`,
+    `[outbound] task ${params.taskId} attempt ${attemptNumber}/${maxAttempts} → batch call ${batchCall.id} (${params.phoneNumber})`,
   );
 
   return { batchCallId: batchCall.id };

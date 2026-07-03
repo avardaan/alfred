@@ -40,6 +40,8 @@ export function buildAlfredOutboundConversationConfig(
         dynamicVariablePlaceholders: {
           task_instruction: "Could you tell me your business hours?",
           task_id: "00000000-0000-0000-0000-000000000000",
+          attempt_number: "1",
+          max_attempts: "2",
         },
       },
       prompt: {
