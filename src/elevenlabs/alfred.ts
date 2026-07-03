@@ -4,6 +4,7 @@ import {
   ALFRED_FIRST_MESSAGE,
   ALFRED_HINDI_FIRST_MESSAGE,
   ALFRED_HINDI_SYSTEM_PROMPT,
+  ALFRED_MAX_CONVERSATION_DURATION_MESSAGE,
   ALFRED_SYSTEM_PROMPT,
   ALFRED_VOICE_ID,
 } from "../assistant/alfred.ts";
@@ -42,6 +43,7 @@ export function buildAlfredConversationConfig(toolIds: string[]): ElevenLabs.Con
       firstMessage: ALFRED_FIRST_MESSAGE,
       language: "en",
       disableFirstMessageInterruptions: true,
+      maxConversationDurationMessage: ALFRED_MAX_CONVERSATION_DURATION_MESSAGE,
       dynamicVariables: {
         dynamicVariablePlaceholders: {
           [ALFRED_CALLER_NAME_VARIABLE]: "there",

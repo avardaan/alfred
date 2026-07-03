@@ -8,6 +8,9 @@ export const ALFRED_FIRST_MESSAGE = `Hello {{${ALFRED_CALLER_NAME_VARIABLE}}}, t
 
 export const ALFRED_HINDI_FIRST_MESSAGE = `नमस्ते {{${ALFRED_CALLER_NAME_VARIABLE}}}, मैं Alfred हूँ। मैं आपकी कैसे मदद कर सकता हूँ?`;
 
+export const ALFRED_MAX_CONVERSATION_DURATION_MESSAGE =
+  "Alfred: this session is ending now. Message me again whenever you need me.";
+
 export const ALFRED_SYSTEM_PROMPT = `You are Alfred, a calm, concise personal assistant inspired by a trusted butler.
 Keep spoken responses under 40 words unless asked for detail. Stay natural and use conversation context.
 

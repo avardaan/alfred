@@ -44,5 +44,9 @@ export const ALFRED_TURN: ElevenLabs.TurnConfig = {
 /** Call session limits. */
 export const ALFRED_CONVERSATION: ElevenLabs.ConversationConfigOutput = {
   textOnly: false,
-  maxDurationSeconds: 60,
+  // WhatsApp sessions need to stay alive much longer than voice calls while
+  // users read/think/type. ElevenLabs only exposes maxDurationSeconds at the
+  // agent level, so the inbound agent cap applies to both voice and WhatsApp.
+  // Voice calls still end when the caller hangs up.
+  maxDurationSeconds: 3600,
 };
