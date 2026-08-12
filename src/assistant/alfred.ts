@@ -1,4 +1,4 @@
-export const ALFRED_VOICE_ID = "7ZDIRYX8GiK4ebxC9heZ";
+export const ALFRED_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
 
 export const ALFRED_GREETING = "Hello, this is Alfred. What can I do for you?";
 

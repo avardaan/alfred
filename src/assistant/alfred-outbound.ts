@@ -1,4 +1,4 @@
-export const ALFRED_OUTBOUND_VOICE_ID = "7ZDIRYX8GiK4ebxC9heZ";
+export const ALFRED_OUTBOUND_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
 
 export const ALFRED_OUTBOUND_FIRST_MESSAGE =
   "Hi, I'm calling on behalf of Vardaan using an AI assistant. Do you have a quick moment?";
