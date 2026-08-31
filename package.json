@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "livekit:dev": "bun src/livekit/agent.ts dev",
+    "livekit:start": "bun src/livekit/agent.ts start",
     "setup": "bun src/scripts/setup.ts",
     "import:twilio": "bun src/scripts/import-twilio.ts",
     "sync:agent": "bun src/scripts/sync-agent.ts",
@@ -17,6 +19,11 @@
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.52.0",
+    "@livekit/agents": "^1.7.1",
+    "@livekit/agents-plugin-deepgram": "^1.7.1",
+    "@livekit/agents-plugin-elevenlabs": "^1.7.1",
+    "@livekit/agents-plugin-openai": "^1.7.1",
+    "@livekit/agents-plugin-silero": "^1.7.1",
     "drizzle-orm": "^0.45.2",
     "libphonenumber-js": "^1.13.7"
   },
