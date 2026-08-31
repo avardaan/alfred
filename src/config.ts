@@ -33,8 +33,11 @@ export const config = {
   postCallWebhookId: optional("ELEVENLABS_POST_CALL_WEBHOOK_ID"),
   postCallWebhookSecret: optional("ELEVENLABS_POST_CALL_WEBHOOK_SECRET"),
   elevenLabsWhatsappPhoneNumberId: optional("ELEVENLABS_WHATSAPP_PHONE_NUMBER_ID"),
-  whatsappTemplateName: optional("WHATSAPP_TEMPLATE_NAME"),
-  whatsappTemplateLanguageCode: optional("WHATSAPP_TEMPLATE_LANGUAGE_CODE"),
+  livekitUrl: optional("LIVEKIT_URL"),
+  livekitApiKey: optional("LIVEKIT_API_KEY"),
+  livekitApiSecret: optional("LIVEKIT_API_SECRET"),
+  openaiApiKey: optional("OPENAI_API_KEY"),
+  deepgramApiKey: optional("DEEPGRAM_API_KEY"),
 };
 
 export function requireElevenLabsApiKey(): string {
