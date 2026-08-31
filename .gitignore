@@ -6,3 +6,9 @@ node_modules
 
 # environment variables
 .env
+
+# sqlite database
+*.db
+*.db-wal
+*.db-shm
+data/

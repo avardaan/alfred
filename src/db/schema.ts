@@ -1,37 +1,39 @@
-import { sql } from "drizzle-orm";
-import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const users = pgTable(
+export const users = sqliteTable(
   "users",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     name: text("name").notNull(),
-    phoneNumbers: text("phone_numbers").array().notNull(),
+    phoneNumbers: text("phone_numbers", { mode: "json" })
+      .$type<string[]>()
+      .notNull(),
     primaryLocation: text("primary_location"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
   },
-  (table) => [
-    index("users_phone_numbers_gin_idx").using("gin", table.phoneNumbers),
-    check(
-      "users_phone_numbers_e164",
-      sql`array_to_string(${table.phoneNumbers}, '|') ~ '^[+][1-9][0-9]{6,14}([|][+][1-9][0-9]{6,14})*$'`,
-    ),
-  ],
 );
 
-export const episodes = pgTable(
+export const episodes = sqliteTable(
   "episodes",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     originatingConversationId: text("originating_conversation_id"),
     channel: text("channel"),
     originatingCallerId: text("originating_caller_id"),
     status: text("status").notNull().default("pending"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    completedAt: timestamp("completed_at"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
   },
   (table) => [
     index("episodes_user_id_idx").on(table.userId),
@@ -39,29 +41,37 @@ export const episodes = pgTable(
   ],
 );
 
-export const tasks = pgTable(
+export const tasks = sqliteTable(
   "tasks",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    episodeId: uuid("episode_id")
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    episodeId: text("episode_id")
       .notNull()
       .references(() => episodes.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     status: text("status").notNull().default("pending"),
-    details: jsonb("details").notNull(),
-    outcome: jsonb("outcome"),
-    scheduledFor: timestamp("scheduled_for"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    completedAt: timestamp("completed_at"),
+    details: text("details", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    outcome: text("outcome", { mode: "json" }).$type<Record<string, unknown>>(),
+    scheduledFor: integer("scheduled_for", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
   },
   (table) => [index("tasks_episode_id_idx").on(table.episodeId)],
 );
 
-export const callAttempts = pgTable(
+export const callAttempts = sqliteTable(
   "call_attempts",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    taskId: uuid("task_id")
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    taskId: text("task_id")
       .notNull()
       .references(() => tasks.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
@@ -69,8 +79,10 @@ export const callAttempts = pgTable(
     elevenlabsConversationId: text("elevenlabs_conversation_id"),
     elevenlabsBatchCallId: text("elevenlabs_batch_call_id"),
     status: text("status").notNull().default("pending"),
-    startedAt: timestamp("started_at").defaultNow().notNull(),
-    endedAt: timestamp("ended_at"),
+    startedAt: integer("started_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    endedAt: integer("ended_at", { mode: "timestamp" }),
     failureReason: text("failure_reason"),
   },
   (table) => [index("call_attempts_task_id_idx").on(table.taskId)],

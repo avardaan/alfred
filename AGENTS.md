@@ -4,8 +4,7 @@ Personal voice assistant powered by [ElevenAgents](https://elevenlabs.io/docs/el
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) (runtime + package manager)
-- [PostgreSQL](https://www.postgresql.org/) 13+ (Alfred uses Postgres for user storage)
+- [Bun](https://bun.sh) (runtime + package manager + native SQLite)
 - An [ElevenLabs](https://elevenlabs.io) account and API key with ConvAI scopes
 - A [Google Cloud](https://console.cloud.google.com/google/maps-apis/credentials) project with **Places API (New)** enabled (for business phone-number lookups)
 
@@ -98,7 +97,7 @@ Alfred runs on a Hetzner VPS behind [Caddy](https://caddyserver.com), which term
 
 | Route | Purpose |
 |-------|--------|
-| `/webhook/elevenlabs/init` | Inbound call/SMS initiation — lookup caller in Postgres, personalize greeting |
+| `/webhook/elevenlabs/init` | Inbound call/SMS initiation — lookup caller in SQLite, personalize greeting |
 | `/tools/get_weather` | Webhook tool → `src/tools/weather.ts` |
 | `/tools/lookup_business` | Webhook tool — resolves a business name to name + address + phone via Google Places |
 | `/tools/create_task` | Webhook tool — creates an outbound task and places the call to the business |
@@ -106,7 +105,7 @@ Alfred runs on a Hetzner VPS behind [Caddy](https://caddyserver.com), which term
 
 **Host:** Hetzner VPS `62.238.47.91` (SSH alias `alfred`, user `vardaan`). Public URL `https://62-238-47-91.sslip.io` — the [sslip.io](https://sslip.io) hostname maps to the IP so Let's Encrypt can issue a cert for an otherwise bare-IP host. The Hetzner firewall allows ports 80 and 443.
 
-The running server needs `DATABASE_URL` (Postgres) and `WEBHOOK_SECRET`. All tool and init webhook routes require a matching `X-Webhook-Secret` header (hard-fail 401 if missing/mismatched, including when `WEBHOOK_SECRET` is unset). ElevenLabs injects the secret via a workspace secret referenced in each tool's and the init webhook's `requestHeaders`; `setup`/`sync:agent` provision it. `/health` stays open. Keep API keys in local `.env` for scripts only.
+The running server needs `DATABASE_URL` (SQLite file path, defaults to `alfred.db`) and `WEBHOOK_SECRET`. All tool and init webhook routes require a matching `X-Webhook-Secret` header (hard-fail 401 if missing/mismatched, including when `WEBHOOK_SECRET` is unset). ElevenLabs injects the secret via a workspace secret referenced in each tool's and the init webhook's `requestHeaders`; `setup`/`sync:agent` provision it. `/health` stays open. Keep API keys in local `.env` for scripts only.
 
 ### Process (systemd)
 
@@ -137,14 +136,14 @@ Caddy runs as a systemd service and auto-provisions/renews the Let's Encrypt cer
 
 Reload after edits with `sudo systemctl reload caddy`.
 
-### Database (PostgreSQL)
+### Database (SQLite)
 
-PostgreSQL 18 runs on the VPS, bound to `127.0.0.1:5432` (not exposed publicly). The `alfred` role owns the `alfred` database; `DATABASE_URL` in `.env` points the app at it. Schema is defined in `src/db/schema.ts` (Drizzle ORM); migrations live in `drizzle/` and are applied with `bun run db:migrate`.
+Alfred uses in-process SQLite via `bun:sqlite` and [Drizzle ORM](https://orm.drizzle.team) (`drizzle-orm/bun-sqlite`). The database file lives at `alfred.db` (configured via `DATABASE_URL` in `.env`). Schema is defined in `src/db/schema.ts`; migrations live in `drizzle/` and are generated with `bun run db:generate`.
 
-Back up with `pg_dump`:
+Back up with SQLite CLI or file copy:
 
 ```bash
-sudo -u postgres pg_dump alfred | gzip > alfred_$(date +%F).sql.gz
+sqlite3 alfred.db ".backup 'alfred_$(date +%F).db'"
 ```
 
 ## Stack
@@ -153,7 +152,7 @@ sudo -u postgres pg_dump alfred | gzip > alfred_$(date +%F).sql.gz
 - **Language:** TypeScript (strict, ESM, `.ts` imports with extensions)
 - **Voice:** ElevenAgents — `@elevenlabs/elevenlabs-js`, configured in `src/elevenlabs/*`
 - **Persona:** `src/assistant/alfred.ts` (alfred-client prompt, greeting, voice ID); `src/assistant/alfred-outbound.ts` (alfred-worker prompt, greeting, voice ID)
-- **Database:** PostgreSQL + [Drizzle ORM](https://orm.drizzle.team) (postgres-js driver), schema in `src/db/schema.ts`
+- **Database:** SQLite via `bun:sqlite` + [Drizzle ORM](https://orm.drizzle.team), schema in `src/db/schema.ts`
 - **Places:** Google Places API (New) via `src/tools/places.ts` for business phone-number resolution
 
 ### Layout
@@ -212,7 +211,7 @@ The `scheduled_for` column on `tasks` exists for future scheduled tasks but is u
 - Tool handlers return plain strings; the webhook responds with `{ result: "..." }`.
 - Run `bun run sync:agent` after changing `src/assistant/*` or `src/elevenlabs/*`.
 - Run `bun run db:generate` then `bun run db:migrate` after changing `src/db/schema.ts`.
-- `findUserByPhone` is async (queries Postgres); consumers must `await` it.
+- `findUserByPhone` is async (queries SQLite); consumers must `await` it.
 - Task helpers (`createTask`, `updateTaskStatus`, `createAttempt`, etc.) are in `src/db/tasks.ts` and are async.
 - **Tool webhooks receive `conversation_id` but NOT `user_id` in the body.** `create_task` and `lookup_business` resolve the user from the `X-User-Id` header, which ElevenLabs injects from `system__user_id` via `requestHeaders`.
 - **All tool + init webhook endpoints require a matching `X-Webhook-Secret` header** (`src/webhook/auth.ts`). The secret value is stored as the `alfred_webhook_secret` workspace secret on ElevenLabs and injected into `requestHeaders` via `{ secretId }`. `setup`/`sync:agent` provision it from `WEBHOOK_SECRET`. Hard-fail: no escape hatch when unset.

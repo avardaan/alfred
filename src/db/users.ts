@@ -1,4 +1,4 @@
-import { arrayContains } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { parsePhoneNumber } from "libphonenumber-js";
 
 import { ALFRED_GREETING } from "../assistant/alfred.ts";
@@ -57,7 +57,7 @@ export function normalizePhone(phone: string): string {
 }
 
 export function userPhoneNumbers(user: User): string[] {
-  return user.phoneNumbers.map(normalizePhone).filter(Boolean);
+  return (user.phoneNumbers ?? []).map(normalizePhone).filter(Boolean);
 }
 
 export async function findUserByPhone(phone: string): Promise<User | undefined> {
@@ -65,7 +65,9 @@ export async function findUserByPhone(phone: string): Promise<User | undefined> 
   const rows = await db
     .select()
     .from(users)
-    .where(arrayContains(users.phoneNumbers, [normalized]))
+    .where(
+      sql`EXISTS (SELECT 1 FROM json_each(${users.phoneNumbers}) WHERE value = ${normalized})`
+    )
     .limit(1);
   return rows[0];
 }
